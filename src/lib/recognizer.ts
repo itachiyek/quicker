@@ -3,7 +3,7 @@
 import * as tf from "@tensorflow/tfjs";
 
 const BUNDLED_MODEL_URL = "/mnist-model/model.json";
-const CACHE_KEY = "indexeddb://brain-trainer-mnist-v2";
+const CACHE_KEY = "indexeddb://brain-trainer-mnist-v3";
 
 type ProgressCb = (msg: string, pct?: number) => void;
 
@@ -12,7 +12,6 @@ let modelPromise: Promise<tf.LayersModel> | null = null;
 export function loadModel(progress: ProgressCb = () => {}): Promise<tf.LayersModel> {
   if (modelPromise) return modelPromise;
   modelPromise = (async () => {
-    // 1) Try the IndexedDB cache (instant on repeat visits).
     try {
       progress("Lade Modell…", 0.1);
       const cached = await tf.loadLayersModel(CACHE_KEY);
@@ -21,15 +20,13 @@ export function loadModel(progress: ProgressCb = () => {}): Promise<tf.LayersMod
     } catch {
       // not cached yet
     }
-
-    // 2) Load the bundled model shipped with the app.
     progress("Lade Modell…", 0.3);
     const model = await tf.loadLayersModel(BUNDLED_MODEL_URL);
     progress("Cache wird angelegt…", 0.85);
     try {
       await model.save(CACHE_KEY);
     } catch {
-      // non-fatal: model still works without cache
+      // non-fatal
     }
     progress("Bereit!", 1);
     return model;
@@ -37,65 +34,103 @@ export function loadModel(progress: ProgressCb = () => {}): Promise<tf.LayersMod
   return modelPromise;
 }
 
-// Convert canvas drawing to a [1, 784] grayscale tensor centered like MNIST.
+// MNIST-style preprocessing:
+// 1) Find bounding box of ink
+// 2) Resize so the longer side fits a 20x20 box
+// 3) Place in a 28x28 image with the center of mass at (14, 14)
+// Returns a [1, 784] tensor with values in [0, 1] (white digit on black, like MNIST).
 export function canvasToTensor(source: HTMLCanvasElement): tf.Tensor2D {
-  return tf.tidy(() => {
-    const w = source.width;
-    const h = source.height;
-    const ctx = source.getContext("2d", { willReadFrequently: true })!;
-    const imageData = ctx.getImageData(0, 0, w, h);
+  const w = source.width;
+  const h = source.height;
+  const ctx = source.getContext("2d", { willReadFrequently: true })!;
+  const imageData = ctx.getImageData(0, 0, w, h);
 
-    let minX = w,
-      minY = h,
-      maxX = -1,
-      maxY = -1;
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const i = (y * w + x) * 4;
-        const a = imageData.data[i + 3] / 255;
-        const r = imageData.data[i];
-        const inkness = a * (1 - r / 255);
-        if (inkness > 0.1) {
-          if (x < minX) minX = x;
-          if (y < minY) minY = y;
-          if (x > maxX) maxX = x;
-          if (y > maxY) maxY = y;
-        }
+  // Build inkness buffer in source resolution: ink = 1, background = 0.
+  const ink = new Float32Array(w * h);
+  let minX = w,
+    minY = h,
+    maxX = -1,
+    maxY = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const a = imageData.data[i + 3] / 255;
+      const r = imageData.data[i];
+      const v = a * (1 - r / 255);
+      ink[y * w + x] = v;
+      if (v > 0.15) {
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
       }
     }
+  }
+  if (maxX < 0) {
+    return tf.tidy(() => tf.zeros([1, 784]) as tf.Tensor2D);
+  }
 
-    if (maxX < 0) {
-      return tf.zeros([1, 784]) as tf.Tensor2D;
+  const bw = maxX - minX + 1;
+  const bh = maxY - minY + 1;
+
+  // Step 1: draw the cropped ink onto an offscreen canvas, then scale so the
+  // longer side is 20px (matching MNIST normalization).
+  const longSide = Math.max(bw, bh);
+  const scale = 20 / longSide;
+  const targetW = Math.max(1, Math.round(bw * scale));
+  const targetH = Math.max(1, Math.round(bh * scale));
+
+  const cropCanvas = document.createElement("canvas");
+  cropCanvas.width = targetW;
+  cropCanvas.height = targetH;
+  const cctx = cropCanvas.getContext("2d")!;
+  cctx.imageSmoothingEnabled = true;
+  cctx.imageSmoothingQuality = "high";
+  cctx.fillStyle = "white";
+  cctx.fillRect(0, 0, targetW, targetH);
+  cctx.drawImage(source, minX, minY, bw, bh, 0, 0, targetW, targetH);
+
+  // Read back the scaled image, invert to MNIST polarity (white on black).
+  const scaled = cctx.getImageData(0, 0, targetW, targetH);
+  const small = new Float32Array(targetW * targetH);
+  for (let i = 0; i < targetW * targetH; i++) {
+    const r = scaled.data[i * 4];
+    const a = scaled.data[i * 4 + 3] / 255;
+    small[i] = a * (1 - r / 255);
+  }
+
+  // Step 2: compute center of mass on the scaled glyph.
+  let mass = 0,
+    cx = 0,
+    cy = 0;
+  for (let y = 0; y < targetH; y++) {
+    for (let x = 0; x < targetW; x++) {
+      const v = small[y * targetW + x];
+      if (v > 0) {
+        mass += v;
+        cx += x * v;
+        cy += y * v;
+      }
     }
+  }
+  cx = mass > 0 ? cx / mass : targetW / 2;
+  cy = mass > 0 ? cy / mass : targetH / 2;
 
-    const bw = maxX - minX + 1;
-    const bh = maxY - minY + 1;
-    const side = Math.max(bw, bh);
-    const padded = Math.ceil(side * 1.4);
-    const cropCanvas = document.createElement("canvas");
-    cropCanvas.width = padded;
-    cropCanvas.height = padded;
-    const cctx = cropCanvas.getContext("2d")!;
-    cctx.fillStyle = "white";
-    cctx.fillRect(0, 0, padded, padded);
-    cctx.drawImage(
-      source,
-      minX,
-      minY,
-      bw,
-      bh,
-      (padded - bw) / 2,
-      (padded - bh) / 2,
-      bw,
-      bh,
-    );
+  // Step 3: place into 28x28 so center of mass lands at (14, 14).
+  const out = new Float32Array(28 * 28);
+  const offX = Math.round(14 - cx);
+  const offY = Math.round(14 - cy);
+  for (let y = 0; y < targetH; y++) {
+    const dy = y + offY;
+    if (dy < 0 || dy >= 28) continue;
+    for (let x = 0; x < targetW; x++) {
+      const dx = x + offX;
+      if (dx < 0 || dx >= 28) continue;
+      out[dy * 28 + dx] = small[y * targetW + x];
+    }
+  }
 
-    // Resize and invert (MNIST: white digit on black).
-    const t = tf.browser.fromPixels(cropCanvas, 1).toFloat();
-    const resized = tf.image.resizeBilinear(t as tf.Tensor3D, [28, 28]);
-    const inverted = tf.scalar(1).sub(resized.div(255));
-    return inverted.reshape([1, 784]) as tf.Tensor2D;
-  });
+  return tf.tidy(() => tf.tensor2d(out, [1, 784]));
 }
 
 export async function recognize(
