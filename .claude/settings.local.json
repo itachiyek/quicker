@@ -22,7 +22,10 @@
       "Bash(git push *)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(npm cache *)"
+      "Bash(npm cache *)",
+      "Bash(node scripts/train-model.mjs)",
+      "WebFetch(domain:docs.world.org)",
+      "mcp__79e26106-b63f-4698-8031-a8086cb58766__list_projects"
     ]
   }
 }
