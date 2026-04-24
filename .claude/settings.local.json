@@ -5,7 +5,12 @@
       "Bash(gh --version)",
       "Bash(gh auth *)",
       "Bash(npm install *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "mcp__a9726d8d-bf26-4b48-8767-f3fc766986fa__deploy_to_vercel",
+      "Bash(vercel --version)",
+      "Bash(vercel whoami *)",
+      "Bash(vercel deploy *)",
+      "Bash(node -e \"const m = require\\('mnist'\\); console.log\\('digits per class:', m[0].length\\); const set = m.set\\(800, 200\\); console.log\\('train:', set.training.length, 'test:', set.test.length, 'sample input length:', set.training[0].input.length, 'output:', set.training[0].output\\);\")"
     ]
   }
 }
