@@ -10,7 +10,18 @@
       "Bash(vercel --version)",
       "Bash(vercel whoami *)",
       "Bash(vercel deploy *)",
-      "Bash(node -e \"const m = require\\('mnist'\\); console.log\\('digits per class:', m[0].length\\); const set = m.set\\(800, 200\\); console.log\\('train:', set.training.length, 'test:', set.test.length, 'sample input length:', set.training[0].input.length, 'output:', set.training[0].output\\);\")"
+      "Bash(node -e \"const m = require\\('mnist'\\); console.log\\('digits per class:', m[0].length\\); const set = m.set\\(800, 200\\); console.log\\('train:', set.training.length, 'test:', set.test.length, 'sample input length:', set.training[0].input.length, 'output:', set.training[0].output\\);\")",
+      "Bash(winget --version)",
+      "Bash(winget install *)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" --version)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" auth status)",
+      "Bash(git config *)",
+      "Bash(git credential *)",
+      "Bash(git remote *)",
+      "Bash(git branch *)",
+      "Bash(git push *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

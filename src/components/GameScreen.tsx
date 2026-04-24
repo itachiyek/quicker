@@ -11,7 +11,7 @@ import type * as tf from "@tensorflow/tfjs";
 const ROUND_DURATION = 60; // seconds
 const VISIBLE_ROWS = 3;
 const POOL_SIZE = 60;
-const RECOGNIZE_DELAY_MS = 700;
+const RECOGNIZE_DELAY_MS = 300;
 
 type Feedback = { kind: "correct" | "wrong"; digit: number } | null;
 
@@ -26,7 +26,6 @@ export default function GameScreen({
   const [timeLeft, setTimeLeft] = useState(ROUND_DURATION);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [model, setModel] = useState<tf.LayersModel | null>(null);
-  const [busy, setBusy] = useState(false);
 
   const canvasRef = useRef<DrawCanvasHandle | null>(null);
   const recognizeTimer = useRef<number | null>(null);
@@ -93,16 +92,14 @@ export default function GameScreen({
     const canvas = canvasRef.current?.getCanvas();
     if (!canvas) return;
     if (canvasRef.current?.isEmpty()) return;
-    setBusy(true);
     const result = await recognize(model, canvas);
-    setBusy(false);
     if (!result) return;
 
     const expected = expectedAnswerRef.current;
     if (result.digit === expected) {
       setFeedback({ kind: "correct", digit: result.digit });
       playCorrect();
-      window.setTimeout(advance, 350);
+      window.setTimeout(advance, 180);
     } else if (!wrongDigitsRef.current.has(result.digit)) {
       wrongDigitsRef.current.add(result.digit);
       setFeedback({ kind: "wrong", digit: result.digit });
@@ -110,7 +107,7 @@ export default function GameScreen({
       window.setTimeout(() => {
         canvasRef.current?.clear();
         setFeedback(null);
-      }, 600);
+      }, 350);
     }
   }, [model, advance]);
 
@@ -145,7 +142,7 @@ export default function GameScreen({
 
       {/* Bottom screen: drawing */}
       <div className="aspect-square">
-        <DrawCanvas ref={canvasRef} onStrokeEnd={onStrokeEnd} disabled={busy} />
+        <DrawCanvas ref={canvasRef} onStrokeEnd={onStrokeEnd} />
       </div>
     </div>
   );
