@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAccount, useDisconnect, useSignMessage } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { MiniKit } from "@worldcoin/minikit-js";
@@ -31,7 +31,60 @@ function buildSiweMessage(opts: {
 
 const STATEMENT = "Sign in to Brain Trainer to track your scores.";
 
-export default function WalletBar({ compact = false }: { compact?: boolean }) {
+function isInWorldApp(): boolean {
+  if (typeof window === "undefined") return false;
+  const m = MiniKit as unknown as { isInWorldApp?: () => boolean };
+  return typeof m.isInWorldApp === "function" ? !!m.isInWorldApp() : false;
+}
+
+async function signInWithMiniKit(nonce: string) {
+  const mk = MiniKit as unknown as {
+    walletAuth: (opts: {
+      nonce: string;
+      statement?: string;
+      expirationTime?: Date;
+    }) => Promise<
+      | {
+          executedWith?: "minikit" | "wagmi" | "fallback";
+          data?: { address: string; message: string; signature: string };
+          finalPayload?: {
+            status?: string;
+            error_code?: string;
+            address?: string;
+            message?: string;
+            signature?: string;
+          };
+        }
+      | undefined
+    >;
+  };
+  const result = await mk.walletAuth({
+    nonce,
+    statement: STATEMENT,
+    expirationTime: new Date(Date.now() + 1000 * 60 * 60),
+  });
+  const payload =
+    result?.data ??
+    (result?.finalPayload?.status === "success" ? result.finalPayload : undefined);
+  if (!payload) {
+    throw new Error(result?.finalPayload?.error_code ?? "Sign-in cancelled");
+  }
+  const res = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ source: "minikit", payload, nonce }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+}
+
+export type WalletBarProps = {
+  /** When true, render only the address chip + sign-out, no big sign-in button */
+  compact?: boolean;
+  /** Called once a wallet has been connected AND signed in */
+  onSignedIn?: (wallet: string) => void;
+};
+
+export default function WalletBar({ compact = false, onSignedIn }: WalletBarProps) {
   const { wallet, refresh, logout } = useSession();
   const { address, isConnected, chainId } = useAccount();
   const { signMessageAsync } = useSignMessage();
@@ -39,86 +92,25 @@ export default function WalletBar({ compact = false }: { compact?: boolean }) {
   const { openConnectModal } = useConnectModal();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inWorldApp = isInWorldApp();
+  const attemptedRef = useRef<string | null>(null);
+  const onSignedInRef = useRef(onSignedIn);
+  onSignedInRef.current = onSignedIn;
 
-  const isInWorldApp =
-    typeof window !== "undefined" &&
-    typeof (MiniKit as unknown as { isInWorldApp?: () => boolean })
-      .isInWorldApp === "function" &&
-    (MiniKit as unknown as { isInWorldApp: () => boolean }).isInWorldApp();
+  // Notify parent once we have a session.
+  useEffect(() => {
+    if (wallet) onSignedInRef.current?.(wallet);
+  }, [wallet]);
 
-  const handleSignIn = useCallback(async () => {
-    setError(null);
-    setBusy(true);
-    try {
+  // Sign the SIWE message via wagmi after the user connects a wallet.
+  const signWithWagmi = useCallback(
+    async (addr: string) => {
       const r = await fetch("/api/auth/nonce");
       const { nonce } = (await r.json()) as { nonce: string };
-
-      // Path A — inside World App: use MiniKit's walletAuth.
-      if (isInWorldApp) {
-        // Cast to a minimal callable shape; the SDK types are over-narrow.
-        const mk = MiniKit as unknown as {
-          walletAuth: (opts: {
-            nonce: string;
-            statement?: string;
-            expirationTime?: Date;
-          }) => Promise<
-            | {
-                executedWith?: "minikit" | "wagmi" | "fallback";
-                data?: { address: string; message: string; signature: string };
-                finalPayload?: {
-                  status?: string;
-                  error_code?: string;
-                  address?: string;
-                  message?: string;
-                  signature?: string;
-                };
-              }
-            | undefined
-          >;
-        };
-        const result = await mk.walletAuth({
-          nonce,
-          statement: STATEMENT,
-          expirationTime: new Date(Date.now() + 1000 * 60 * 60),
-        });
-        // Newer SDK returns {executedWith, data}; older shapes use finalPayload.
-        const payload =
-          result?.data ??
-          (result?.finalPayload?.status === "success"
-            ? result.finalPayload
-            : undefined);
-        if (!payload) {
-          throw new Error(
-            result?.finalPayload?.error_code ?? "Sign-in cancelled",
-          );
-        }
-        const res = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            source: "minikit",
-            payload,
-            nonce,
-          }),
-        });
-        if (!res.ok) throw new Error(await res.text());
-        await refresh();
-        return;
-      }
-
-      // Path B — regular browser/EOA wallet via wagmi+RainbowKit.
-      let walletAddress = address;
-      if (!isConnected || !walletAddress) {
-        // Open RainbowKit modal so the user picks a wallet.
-        if (!openConnectModal) throw new Error("Connect modal unavailable");
-        openConnectModal();
-        // We can't await the modal — bail and let user click again.
-        return;
-      }
       const message = buildSiweMessage({
         domain: window.location.host,
         uri: window.location.origin,
-        address: walletAddress,
+        address: addr,
         nonce,
         chainId: chainId ?? 1,
         statement: STATEMENT,
@@ -131,28 +123,75 @@ export default function WalletBar({ compact = false }: { compact?: boolean }) {
           source: "wagmi",
           message,
           signature,
-          address: walletAddress,
+          address: addr,
         }),
       });
       if (!res.ok) throw new Error(await res.text());
-      await refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Sign-in failed");
-      // Disconnect dangling EOA so the next click can retry cleanly.
-      if (isConnected && !wallet) disconnect();
-    } finally {
-      setBusy(false);
+    },
+    [chainId, signMessageAsync],
+  );
+
+  // Auto-trigger the SIWE step as soon as the user connects, so they only
+  // tap "Connect Wallet" once.
+  useEffect(() => {
+    if (!isConnected || !address) return;
+    if (wallet && wallet.toLowerCase() === address.toLowerCase()) return;
+    if (attemptedRef.current === address) return;
+    attemptedRef.current = address;
+    setError(null);
+    setBusy(true);
+    signWithWagmi(address)
+      .then(() => refresh())
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : "Sign-in failed");
+        attemptedRef.current = null;
+        disconnect();
+      })
+      .finally(() => setBusy(false));
+  }, [isConnected, address, wallet, signWithWagmi, refresh, disconnect]);
+
+  const handleClick = useCallback(async () => {
+    setError(null);
+    if (inWorldApp) {
+      setBusy(true);
+      try {
+        const r = await fetch("/api/auth/nonce");
+        const { nonce } = (await r.json()) as { nonce: string };
+        await signInWithMiniKit(nonce);
+        await refresh();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Sign-in failed");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
+    // Outside World App → open RainbowKit; the auto-sign effect picks it up.
+    if (!isConnected) {
+      openConnectModal?.();
+      return;
+    }
+    // Already connected but not signed in → trigger a sign manually.
+    if (address) {
+      attemptedRef.current = null;
+      setBusy(true);
+      try {
+        await signWithWagmi(address);
+        await refresh();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Sign-in failed");
+      } finally {
+        setBusy(false);
+      }
     }
   }, [
     address,
-    chainId,
-    disconnect,
+    inWorldApp,
     isConnected,
-    isInWorldApp,
     openConnectModal,
     refresh,
-    signMessageAsync,
-    wallet,
+    signWithWagmi,
   ]);
 
   const short = wallet ? `${wallet.slice(0, 6)}…${wallet.slice(-4)}` : null;
@@ -179,14 +218,14 @@ export default function WalletBar({ compact = false }: { compact?: boolean }) {
   return (
     <div className="flex flex-col items-end gap-1">
       <button
-        onClick={handleSignIn}
+        onClick={handleClick}
         disabled={busy}
         className="btn-primary text-sm py-2 px-4"
       >
-        {busy ? "Signing in…" : isInWorldApp ? "Sign in with World" : "Connect Wallet"}
+        {busy ? "Signing in…" : inWorldApp ? "Sign in with World" : "Connect Wallet"}
       </button>
       {error && (
-        <span className="text-xs text-rose-700 max-w-[60vw] text-right">
+        <span className="text-xs text-rose-700 max-w-[60vw] text-right break-words">
           {error}
         </span>
       )}

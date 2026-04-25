@@ -11,17 +11,16 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [msg, setMsg] = useState("");
-  const { wallet, loading: sessionLoading } = useSession();
+  const { wallet } = useSession();
 
   useEffect(() => {
     loadModel((m, p) => {
-      setMsg(m === "Bereit!" ? "Ready" : m);
+      setMsg(m);
       if (typeof p === "number") setProgress(p);
     }).catch(() => {});
   }, []);
 
   const handleStart = async () => {
-    if (!wallet) return;
     unlockAudio();
     setLoading(true);
     try {
@@ -66,24 +65,13 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
           as you write — no keyboard, no buttons.
         </p>
 
-        {!wallet ? (
-          <div className="flex flex-col gap-3">
-            <div className="rounded-lg border border-stone-300 bg-stone-50 px-4 py-3 text-sm text-stone-700">
-              Connect your wallet to play and save scores to the leaderboard.
-            </div>
-            <div className="self-end">
-              <WalletBar compact />
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={handleStart}
-            disabled={loading || sessionLoading}
-            className="btn-primary w-full text-base"
-          >
-            {loading ? "Loading…" : "Start Game"}
-          </button>
-        )}
+        <button
+          onClick={handleStart}
+          disabled={loading || !wallet}
+          className="btn-primary w-full text-base"
+        >
+          {loading ? "Loading…" : "Start Game"}
+        </button>
 
         {(loading || (progress > 0 && progress < 1)) && (
           <div className="mt-4">
