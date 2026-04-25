@@ -11,15 +11,48 @@ function getCtx(): AudioContext | null {
     if (!Ctor) return null;
     ctx = new Ctor();
     masterGain = ctx.createGain();
-    masterGain.gain.value = 0.7;
+    masterGain.gain.value = 1.0;
     masterGain.connect(ctx.destination);
   }
   return ctx;
 }
 
+let unlocked = false;
+
 export function unlockAudio() {
   const c = getCtx();
-  if (c && c.state === "suspended") c.resume();
+  if (!c) return;
+  if (c.state === "suspended") {
+    c.resume().catch(() => {});
+  }
+  if (unlocked) return;
+  // iOS Safari requires an actual node be played within a user gesture
+  // before any audio comes out — even after resume(). A 1-sample silent
+  // buffer is enough to flip the audio session into "active" mode.
+  try {
+    const buf = c.createBuffer(1, 1, 22050);
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    src.connect(c.destination);
+    src.start(0);
+    unlocked = true;
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Wire global one-shot unlocks on the first interaction so we never miss
+ *  the gesture window (e.g. user taps the canvas before pressing Start). */
+export function installUnlockListeners() {
+  if (typeof window === "undefined") return;
+  const handler = () => {
+    unlockAudio();
+  };
+  const opts = { once: true, passive: true } as AddEventListenerOptions;
+  window.addEventListener("pointerdown", handler, opts);
+  window.addEventListener("touchstart", handler, opts);
+  window.addEventListener("keydown", handler, opts);
+  window.addEventListener("click", handler, opts);
 }
 
 function dest(): AudioNode | null {

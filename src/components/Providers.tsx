@@ -7,13 +7,12 @@ import { RainbowKitProvider, lightTheme } from "@rainbow-me/rainbowkit";
 import { wagmiConfig } from "@/lib/wagmi";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { SessionProvider } from "@/hooks/useSession";
+import { installUnlockListeners } from "@/lib/sounds";
 import "@rainbow-me/rainbowkit/styles.css";
 
-function MiniKitInit() {
+function ClientInit() {
   useEffect(() => {
     try {
-      // Calling install() makes MiniKit listen to messages from World App.
-      // It's a no-op outside the World App webview.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const m = MiniKit as unknown as { install?: (appId?: string) => unknown };
       if (typeof m.install === "function") {
@@ -22,6 +21,7 @@ function MiniKitInit() {
     } catch {
       /* ignore */
     }
+    installUnlockListeners();
   }, []);
   return null;
 }
@@ -39,7 +39,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           })}
           modalSize="compact"
         >
-          <MiniKitInit />
+          <ClientInit />
           <SessionProvider>{children}</SessionProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
