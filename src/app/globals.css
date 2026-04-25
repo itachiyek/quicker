@@ -4,18 +4,24 @@
   html,
   body {
     height: 100%;
-    color: #1c1917;
+    color: #0c0a09;
     font-family:
       ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
   }
 
   body {
     background:
       radial-gradient(
-        ellipse 80% 60% at 50% 0%,
-        rgba(252, 211, 77, 0.18) 0%,
-        rgba(252, 211, 77, 0) 60%
+        1200px 600px at 50% -10%,
+        rgba(251, 191, 36, 0.18) 0%,
+        rgba(251, 191, 36, 0) 60%
+      ),
+      radial-gradient(
+        800px 400px at 100% 30%,
+        rgba(244, 114, 182, 0.08) 0%,
+        rgba(244, 114, 182, 0) 60%
       ),
       linear-gradient(180deg, #faf6ed 0%, #f0ead6 100%);
     background-attachment: fixed;
@@ -29,17 +35,16 @@
 @layer components {
   .panel {
     background: #ffffff;
-    border: 1px solid rgba(120, 113, 108, 0.25);
+    border: 1px solid rgba(120, 113, 108, 0.2);
     border-radius: 14px;
     box-shadow:
       0 1px 0 rgba(255, 255, 255, 0.9) inset,
-      0 1px 2px rgba(28, 25, 23, 0.05),
-      0 8px 24px -12px rgba(28, 25, 23, 0.15);
+      0 1px 2px rgba(28, 25, 23, 0.04),
+      0 8px 24px -12px rgba(28, 25, 23, 0.12);
   }
 
   .paper {
-    background:
-      linear-gradient(180deg, #fefcf6 0%, #fbf6e7 100%);
+    background: linear-gradient(180deg, #fefcf6 0%, #fbf6e7 100%);
     border: 1px solid rgba(120, 113, 108, 0.3);
     border-radius: 14px;
     box-shadow:
@@ -48,27 +53,46 @@
       0 12px 24px -16px rgba(28, 25, 23, 0.2);
   }
 
+  .card-glass {
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 18px;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 8px 32px -8px rgba(28, 25, 23, 0.12);
+  }
+
   .btn-primary {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    background: linear-gradient(180deg, #292524 0%, #1c1917 100%);
+    background: linear-gradient(180deg, #292524 0%, #0c0a09 100%);
     color: #ffffff;
     font-weight: 600;
-    border-radius: 12px;
-    padding: 0.85rem 1.25rem;
+    border-radius: 14px;
+    padding: 0.95rem 1.25rem;
     box-shadow:
       0 1px 0 rgba(255, 255, 255, 0.18) inset,
-      0 -2px 0 rgba(0, 0, 0, 0.15) inset,
-      0 4px 12px -2px rgba(28, 25, 23, 0.4);
-    transition: transform 80ms ease;
+      0 -2px 0 rgba(0, 0, 0, 0.18) inset,
+      0 6px 20px -4px rgba(28, 25, 23, 0.45);
+    transition:
+      transform 80ms ease,
+      box-shadow 200ms ease;
+  }
+  .btn-primary:hover:not(:disabled) {
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.18) inset,
+      0 -2px 0 rgba(0, 0, 0, 0.18) inset,
+      0 8px 24px -4px rgba(28, 25, 23, 0.55);
   }
   .btn-primary:active {
     transform: translateY(1px);
   }
   .btn-primary:disabled {
-    opacity: 0.55;
+    opacity: 0.5;
     cursor: not-allowed;
   }
 
@@ -85,9 +109,30 @@
     padding: 0.5rem 0.85rem;
     backdrop-filter: blur(6px);
   }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(120, 113, 108, 0.25);
+    font-size: 11px;
+    font-weight: 500;
+    color: #44403c;
+    backdrop-filter: blur(6px);
+  }
+
+  .gradient-text {
+    background: linear-gradient(120deg, #0c0a09 0%, #57534e 60%, #0c0a09 100%);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
 }
 
-/* RainbowKit modal stays on top of our z-index playground */
 [data-rk] {
   --rk-radii-modal: 16px;
 }

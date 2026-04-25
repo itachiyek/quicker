@@ -10,7 +10,7 @@ export default function MathPanel({
   feedback,
 }: {
   rows: Row[];
-  feedback: { kind: "correct" | "wrong"; digit: number } | null;
+  feedback: { kind: "correct" | "wrong"; value: string } | null;
 }) {
   return (
     <div
@@ -20,7 +20,6 @@ export default function MathPanel({
           "repeating-linear-gradient(180deg, transparent 0 38px, rgba(120,113,108,0.18) 38px 39px)",
       }}
     >
-      {/* red margin line, classic notebook */}
       <div className="absolute left-9 top-0 bottom-0 w-px bg-rose-300/60" />
 
       {rows.map(({ eq, status }, i) => {
@@ -53,7 +52,7 @@ export default function MathPanel({
                         : "text-rose-600 font-bold animate-pulse"
                     }
                   >
-                    {feedback.digit}
+                    {feedback.value}
                   </span>
                 ) : null}
               </span>

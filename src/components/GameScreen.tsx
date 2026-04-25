@@ -4,16 +4,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DrawCanvas, { type DrawCanvasHandle } from "./DrawCanvas";
 import MathPanel from "./MathPanel";
 import { makeEquations, type Equation } from "@/lib/equations";
-import { loadModel, recognize } from "@/lib/recognizer";
+import { loadModel, recognizeAll } from "@/lib/recognizer";
 import { playCorrect, playWrong } from "@/lib/sounds";
 import type * as tf from "@tensorflow/tfjs";
 
 const ROUND_DURATION = 60; // seconds
 const VISIBLE_ROWS = 3;
 const POOL_SIZE = 60;
-const RECOGNIZE_DELAY_MS = 300;
+// Single-digit problems get fast feedback; two-digit answers need a slightly
+// longer pause so the second digit isn't started after we've already fired.
+const RECOGNIZE_DELAY_MS_1 = 280;
+const RECOGNIZE_DELAY_MS_2 = 550;
 
-type Feedback = { kind: "correct" | "wrong"; digit: number } | null;
+type Feedback = { kind: "correct" | "wrong"; value: string } | null;
 
 export default function GameScreen({
   onFinish,
@@ -91,31 +94,53 @@ export default function GameScreen({
     const canvas = canvasRef.current?.getCanvas();
     if (!canvas) return;
     if (canvasRef.current?.isEmpty()) return;
-    const result = await recognize(model, canvas);
-    if (!result) return;
+    const result = await recognizeAll(model, canvas);
+    if (!result || result.digits.length === 0) return;
 
     const expected = expectedAnswerRef.current;
-    if (result.digit === expected) {
-      setFeedback({ kind: "correct", digit: result.digit });
+    const expectedStr = String(expected);
+    const drawnStr = result.digits.join("");
+
+    // For 2-digit answers, also accept a partial single-digit match where the
+    // user hasn't drawn the second digit yet — but only if the partial digit
+    // matches the FIRST digit of the answer. Otherwise we treat it as wrong.
+    // We never accept a 1-digit drawing as the answer to a 2-digit equation.
+
+    if (drawnStr === expectedStr) {
+      setFeedback({ kind: "correct", value: drawnStr });
       playCorrect();
       window.setTimeout(advance, 180);
+      return;
+    }
+
+    // For 2-digit expected with 1 drawn digit matching the leading digit, do
+    // nothing — they're mid-answer. We just wait for the next stroke.
+    if (
+      expectedStr.length === 2 &&
+      drawnStr.length === 1 &&
+      drawnStr === expectedStr[0]
+    ) {
       return;
     }
 
     // Wrong: clear the canvas immediately so any new stroke isn't lost to a
     // delayed clear, and show what we read briefly in the math panel.
     canvasRef.current?.clear();
-    setFeedback({ kind: "wrong", digit: result.digit });
+    setFeedback({ kind: "wrong", value: drawnStr });
     playWrong();
     if (feedbackTimer.current) window.clearTimeout(feedbackTimer.current);
-    feedbackTimer.current = window.setTimeout(() => setFeedback(null), 500);
+    feedbackTimer.current = window.setTimeout(() => setFeedback(null), 600);
   }, [model, advance]);
 
   const onStrokeEnd = useCallback(() => {
     if (recognizeTimer.current) window.clearTimeout(recognizeTimer.current);
+    const delay =
+      String(expectedAnswerRef.current).length >= 2
+        ? RECOGNIZE_DELAY_MS_2
+        : RECOGNIZE_DELAY_MS_1;
     recognizeTimer.current = window.setTimeout(() => {
       tryRecognize();
-    }, RECOGNIZE_DELAY_MS);
+    }, delay);
   }, [tryRecognize]);
 
   const timePct = Math.max(

@@ -34,47 +34,101 @@ export function loadModel(progress: ProgressCb = () => {}): Promise<tf.LayersMod
   return modelPromise;
 }
 
-// MNIST-style preprocessing:
-// 1) Find bounding box of ink
-// 2) Resize so the longer side fits a 20x20 box
-// 3) Place in a 28x28 image with the center of mass at (14, 14)
-// Returns a [1, 784] tensor with values in [0, 1] (white digit on black, like MNIST).
-export function canvasToTensor(source: HTMLCanvasElement): tf.Tensor2D {
-  const w = source.width;
-  const h = source.height;
-  const ctx = source.getContext("2d", { willReadFrequently: true })!;
-  const imageData = ctx.getImageData(0, 0, w, h);
+type Region = { startX: number; endX: number; minY: number; maxY: number };
 
-  // Build inkness buffer in source resolution: ink = 1, background = 0.
-  const ink = new Float32Array(w * h);
-  let minX = w,
-    minY = h,
-    maxX = -1,
-    maxY = -1;
+// Find horizontally-separated ink regions in the canvas. Each region is one
+// candidate digit. Adjacent strokes within ~12% of canvas height are merged
+// to avoid splitting glyphs like 4 or 5 with disconnected strokes.
+function findDigitRegions(canvas: HTMLCanvasElement): Region[] {
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+  const w = canvas.width;
+  const h = canvas.height;
+  const data = ctx.getImageData(0, 0, w, h).data;
+
+  // Per-column "ink" sum + per-pixel ink lookup.
+  const colInk = new Float32Array(w);
+  const ink = new Uint8Array(w * h);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
-      const a = imageData.data[i + 3] / 255;
-      const r = imageData.data[i];
+      const a = data[i + 3] / 255;
+      const r = data[i];
       const v = a * (1 - r / 255);
-      ink[y * w + x] = v;
       if (v > 0.15) {
-        if (x < minX) minX = x;
-        if (y < minY) minY = y;
-        if (x > maxX) maxX = x;
-        if (y > maxY) maxY = y;
+        ink[y * w + x] = 1;
+        colInk[x] += v;
       }
     }
   }
-  if (maxX < 0) {
-    return tf.tidy(() => tf.zeros([1, 784]) as tf.Tensor2D);
+
+  // Threshold for "this column has ink".
+  const colThreshold = h * 0.005;
+  // A blank run this long is treated as a separator between digits.
+  const minGap = Math.max(8, Math.floor(h * 0.12));
+
+  const regions: Region[] = [];
+  let inRegion = false;
+  let start = 0;
+  let blankRun = 0;
+  for (let x = 0; x < w; x++) {
+    if (colInk[x] > colThreshold) {
+      if (!inRegion) {
+        start = x;
+        inRegion = true;
+      }
+      blankRun = 0;
+    } else if (inRegion) {
+      blankRun++;
+      if (blankRun >= minGap) {
+        regions.push({
+          startX: start,
+          endX: x - blankRun,
+          minY: 0,
+          maxY: h - 1,
+        });
+        inRegion = false;
+      }
+    }
+  }
+  if (inRegion) {
+    regions.push({ startX: start, endX: w - 1, minY: 0, maxY: h - 1 });
   }
 
-  const bw = maxX - minX + 1;
-  const bh = maxY - minY + 1;
+  // Tighten vertical bounds per region.
+  for (const r of regions) {
+    let minY = h,
+      maxY = -1;
+    for (let y = 0; y < h; y++) {
+      for (let x = r.startX; x <= r.endX; x++) {
+        if (ink[y * w + x]) {
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+          break;
+        }
+      }
+    }
+    if (maxY >= 0) {
+      r.minY = minY;
+      r.maxY = maxY;
+    }
+  }
 
-  // Step 1: draw the cropped ink onto an offscreen canvas, then scale so the
-  // longer side is 20px (matching MNIST normalization).
+  // Drop tiny specks (noise) — anything that's smaller than ~5% of canvas
+  // height in BOTH dimensions is probably a stray pixel.
+  return regions.filter(
+    (r) =>
+      r.endX - r.startX >= h * 0.05 || r.maxY - r.minY >= h * 0.05,
+  );
+}
+
+// Build a [1, 784] tensor for one digit region using MNIST-style preprocessing
+// (longer side fits 20px box, center-of-mass at 14,14, white-on-black).
+function regionToTensor(
+  source: HTMLCanvasElement,
+  region: Region,
+): tf.Tensor2D {
+  const bw = region.endX - region.startX + 1;
+  const bh = region.maxY - region.minY + 1;
   const longSide = Math.max(bw, bh);
   const scale = 20 / longSide;
   const targetW = Math.max(1, Math.round(bw * scale));
@@ -88,9 +142,18 @@ export function canvasToTensor(source: HTMLCanvasElement): tf.Tensor2D {
   cctx.imageSmoothingQuality = "high";
   cctx.fillStyle = "white";
   cctx.fillRect(0, 0, targetW, targetH);
-  cctx.drawImage(source, minX, minY, bw, bh, 0, 0, targetW, targetH);
+  cctx.drawImage(
+    source,
+    region.startX,
+    region.minY,
+    bw,
+    bh,
+    0,
+    0,
+    targetW,
+    targetH,
+  );
 
-  // Read back the scaled image, invert to MNIST polarity (white on black).
   const scaled = cctx.getImageData(0, 0, targetW, targetH);
   const small = new Float32Array(targetW * targetH);
   for (let i = 0; i < targetW * targetH; i++) {
@@ -99,7 +162,6 @@ export function canvasToTensor(source: HTMLCanvasElement): tf.Tensor2D {
     small[i] = a * (1 - r / 255);
   }
 
-  // Step 2: compute center of mass on the scaled glyph.
   let mass = 0,
     cx = 0,
     cy = 0;
@@ -116,7 +178,6 @@ export function canvasToTensor(source: HTMLCanvasElement): tf.Tensor2D {
   cx = mass > 0 ? cx / mass : targetW / 2;
   cy = mass > 0 ? cy / mass : targetH / 2;
 
-  // Step 3: place into 28x28 so center of mass lands at (14, 14).
   const out = new Float32Array(28 * 28);
   const offX = Math.round(14 - cx);
   const offY = Math.round(14 - cy);
@@ -133,24 +194,37 @@ export function canvasToTensor(source: HTMLCanvasElement): tf.Tensor2D {
   return tf.tidy(() => tf.tensor2d(out, [1, 784]));
 }
 
-export async function recognize(
+// Recognize all digits drawn on the canvas, left-to-right.
+// Returns an empty array if the canvas has no ink.
+export async function recognizeAll(
   model: tf.LayersModel,
   canvas: HTMLCanvasElement,
-): Promise<{ digit: number; confidence: number } | null> {
-  const input = canvasToTensor(canvas);
-  const out = model.predict(input) as tf.Tensor;
-  const data = await out.data();
-  input.dispose();
-  out.dispose();
+): Promise<{ digits: number[]; confidences: number[] } | null> {
+  const regions = findDigitRegions(canvas);
+  if (regions.length === 0) return null;
 
-  let best = -1;
-  let bestVal = -1;
-  for (let i = 0; i < data.length; i++) {
-    if (data[i] > bestVal) {
-      bestVal = data[i];
-      best = i;
+  // Cap to at most 3 regions; we only ever need 2 for our equations.
+  const limited = regions.slice(0, 3);
+
+  const digits: number[] = [];
+  const confidences: number[] = [];
+  for (const r of limited) {
+    const input = regionToTensor(canvas, r);
+    const out = model.predict(input) as tf.Tensor;
+    const data = await out.data();
+    input.dispose();
+    out.dispose();
+    let best = -1;
+    let bestVal = -1;
+    for (let i = 0; i < data.length; i++) {
+      if (data[i] > bestVal) {
+        bestVal = data[i];
+        best = i;
+      }
     }
+    if (best < 0) return null;
+    digits.push(best);
+    confidences.push(bestVal);
   }
-  if (best < 0) return null;
-  return { digit: best, confidence: bestVal };
+  return { digits, confidences };
 }
