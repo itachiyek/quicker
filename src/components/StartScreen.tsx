@@ -11,16 +11,17 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [msg, setMsg] = useState("");
-  const { wallet } = useSession();
+  const { wallet, loading: sessionLoading } = useSession();
 
   useEffect(() => {
     loadModel((m, p) => {
-      setMsg(m);
+      setMsg(m === "Bereit!" ? "Ready" : m);
       if (typeof p === "number") setProgress(p);
     }).catch(() => {});
   }, []);
 
   const handleStart = async () => {
+    if (!wallet) return;
     unlockAudio();
     setLoading(true);
     try {
@@ -31,58 +32,86 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
       playStart();
       onStart();
     } catch {
-      setMsg("Fehler beim Laden des Modells. Bitte neu laden.");
+      setMsg("Failed to load model. Reload.");
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center p-4 gap-5 max-w-md w-full mx-auto pt-6">
-      <div className="w-full flex justify-end">
+    <div className="flex-1 flex flex-col items-center p-4 gap-6 max-w-md w-full mx-auto pt-5 pb-10">
+      <header className="w-full flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs uppercase tracking-[0.2em] text-stone-500">
+            Brain
+          </div>
+          <h1 className="text-3xl font-serif font-bold tracking-tight leading-none">
+            Trainer
+          </h1>
+        </div>
         <WalletBar />
-      </div>
+      </header>
 
-      <div className="text-center">
-        <h1 className="text-5xl font-serif font-bold tracking-tight">
-          Brain Trainer
-        </h1>
-        <p className="mt-1 text-stone-600 text-sm">
-          Kopfrechnen mit Handschrifterkennung
+      <section className="paper p-6 w-full">
+        <div className="flex items-baseline justify-between mb-3">
+          <span className="text-xs uppercase tracking-wider text-stone-500">
+            Daily Drill
+          </span>
+          <span className="text-xs text-stone-500 tabular-nums">60s</span>
+        </div>
+        <h2 className="font-serif text-2xl font-semibold leading-snug mb-3">
+          Solve as many problems as you can in one minute.
+        </h2>
+        <p className="text-stone-600 text-sm leading-relaxed mb-5">
+          Draw your answer in the panel below. The classifier reads each digit
+          as you write — no keyboard, no buttons.
         </p>
-      </div>
 
-      <div className="bg-white rounded-xl border border-stone-300 shadow-md p-5 w-full">
-        <ul className="text-stone-700 text-sm space-y-1.5 mb-5">
-          <li>• 60 Sekunden, so viele Aufgaben wie möglich</li>
-          <li>• Antwort unten ins Feld zeichnen</li>
-          <li>• Verbinde Wallet für das Leaderboard</li>
-        </ul>
-        <button
-          onClick={handleStart}
-          disabled={loading}
-          className="w-full py-4 rounded-lg bg-stone-800 text-white text-lg font-semibold shadow active:bg-stone-900 disabled:opacity-60"
-        >
-          {loading ? "Lädt…" : "Spiel starten"}
-        </button>
+        {!wallet ? (
+          <div className="flex flex-col gap-3">
+            <div className="rounded-lg border border-stone-300 bg-stone-50 px-4 py-3 text-sm text-stone-700">
+              Connect your wallet to play and save scores to the leaderboard.
+            </div>
+            <div className="self-end">
+              <WalletBar compact />
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={handleStart}
+            disabled={loading || sessionLoading}
+            className="btn-primary w-full text-base"
+          >
+            {loading ? "Loading…" : "Start Game"}
+          </button>
+        )}
+
         {(loading || (progress > 0 && progress < 1)) && (
           <div className="mt-4">
-            <div className="h-2 bg-stone-200 rounded overflow-hidden">
+            <div className="h-1.5 bg-stone-200 rounded-full overflow-hidden">
               <div
-                className="h-full bg-emerald-500 transition-all"
+                className="h-full bg-emerald-500 transition-all duration-300"
                 style={{ width: `${Math.round(progress * 100)}%` }}
               />
             </div>
             <p className="mt-2 text-xs text-stone-500 text-center">{msg}</p>
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="w-full">
-        <h2 className="text-sm font-semibold text-stone-700 mb-2 px-1">
-          Leaderboard
-        </h2>
+      <section className="w-full">
+        <div className="flex items-baseline justify-between px-1 mb-2">
+          <h3 className="text-sm font-semibold text-stone-700 uppercase tracking-wider">
+            Leaderboard
+          </h3>
+          <span className="text-xs text-stone-500">Top 100</span>
+        </div>
         <Leaderboard highlightWallet={wallet} />
-      </div>
+      </section>
+
+      <footer className="text-[10px] text-stone-400 text-center px-2">
+        Inspired by Dr. Kawashima&apos;s Brain Training. Handwriting model
+        trained on MNIST.
+      </footer>
     </div>
   );
 }

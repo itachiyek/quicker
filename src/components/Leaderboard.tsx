@@ -9,6 +9,8 @@ type Entry = {
   games_played: number;
 };
 
+const MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
+
 export default function Leaderboard({
   highlightWallet,
 }: {
@@ -36,29 +38,32 @@ export default function Leaderboard({
 
   if (!configured) {
     return (
-      <div className="text-sm text-stone-500 text-center p-4">
-        Leaderboard wird gerade eingerichtet…
+      <div className="panel text-sm text-stone-500 text-center p-5">
+        Leaderboard is being set up…
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="text-sm text-stone-500 text-center p-4">Lade…</div>
+      <div className="panel text-sm text-stone-400 text-center p-5">
+        Loading…
+      </div>
     );
   }
 
   if (entries.length === 0) {
     return (
-      <div className="text-sm text-stone-500 text-center p-4">
-        Noch keine Scores. Sei der Erste!
+      <div className="panel text-sm text-stone-500 text-center p-5">
+        No scores yet. Be the first.
       </div>
     );
   }
 
   return (
-    <ol className="divide-y divide-stone-200 bg-white rounded-md border border-stone-300 overflow-hidden">
+    <ol className="panel divide-y divide-stone-200 overflow-hidden">
       {entries.map((e, i) => {
+        const rank = i + 1;
         const me =
           highlightWallet &&
           e.wallet.toLowerCase() === highlightWallet.toLowerCase();
@@ -66,17 +71,20 @@ export default function Leaderboard({
         return (
           <li
             key={e.wallet}
-            className={`flex items-center gap-3 px-3 py-2 ${
+            className={`flex items-center gap-3 px-3 py-2.5 ${
               me ? "bg-amber-50" : ""
             }`}
           >
-            <span className="w-6 text-right tabular-nums text-stone-500">
-              {i + 1}
+            <span className="w-7 text-center tabular-nums text-stone-500 font-medium">
+              {MEDAL[rank] ?? rank}
             </span>
-            <span className="flex-1 truncate font-mono text-sm">
+            <span className="flex-1 truncate font-mono text-sm text-stone-800">
               {e.display_name ?? short}
             </span>
-            <span className="tabular-nums font-bold text-lg">
+            <span className="text-[10px] uppercase tracking-wider text-stone-400 mr-1">
+              {e.games_played}g
+            </span>
+            <span className="tabular-nums font-bold text-lg text-stone-900">
               {e.best_score}
             </span>
           </li>

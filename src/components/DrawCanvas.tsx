@@ -126,7 +126,7 @@ const DrawCanvas = forwardRef<DrawCanvasHandle, Props>(function DrawCanvas(
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full bg-white rounded-md overflow-hidden border border-stone-300 shadow-inner"
+      className="paper relative w-full h-full overflow-hidden"
     >
       <canvas
         ref={canvasRef}
@@ -142,9 +142,9 @@ const DrawCanvas = forwardRef<DrawCanvasHandle, Props>(function DrawCanvas(
           e.preventDefault();
           clear();
         }}
-        className="absolute bottom-2 right-2 px-3 py-1 text-sm font-medium rounded-md bg-stone-700 text-white shadow active:bg-stone-800"
+        className="absolute bottom-2 right-2 btn-ghost text-xs"
       >
-        Löschen
+        Clear
       </button>
     </div>
   );

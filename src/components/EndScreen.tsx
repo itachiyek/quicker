@@ -25,7 +25,6 @@ export default function EndScreen({
     playEnd();
   }, []);
 
-  // Submit score if signed in.
   useEffect(() => {
     if (!wallet || submitted) return;
     let cancelled = false;
@@ -51,63 +50,78 @@ export default function EndScreen({
     };
   }, [wallet, score, total, durationSeconds, submitted]);
 
-  let title = "Gut gemacht!";
-  if (score >= 25) title = "Hirn-Athlet!";
-  else if (score >= 15) title = "Stark!";
-  else if (score < 5) title = "Übung macht den Meister";
+  let title = "Nice work!";
+  let subtitle = "Run it back?";
+  if (score >= 25) {
+    title = "Brain Athlete";
+    subtitle = "Elite reflexes.";
+  } else if (score >= 15) {
+    title = "Solid Drill";
+    subtitle = "Consistency pays.";
+  } else if (score < 5) {
+    title = "Warming Up";
+    subtitle = "Practice makes perfect.";
+  }
 
   return (
-    <div className="flex-1 flex flex-col items-center p-4 gap-5 max-w-md w-full mx-auto pt-6">
-      <div className="w-full flex justify-end">
-        <WalletBar />
-      </div>
-
-      <div className="text-center">
-        <h1 className="text-3xl font-serif font-bold">{title}</h1>
-      </div>
-
-      <div className="bg-white rounded-xl border border-stone-300 shadow-md p-6 w-full text-center">
-        <div className="text-stone-500 text-xs uppercase tracking-wide">
-          Richtig
+    <div className="flex-1 flex flex-col items-center p-4 gap-6 max-w-md w-full mx-auto pt-5 pb-10">
+      <header className="w-full flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs uppercase tracking-[0.2em] text-stone-500">
+            Brain
+          </div>
+          <h1 className="text-3xl font-serif font-bold tracking-tight leading-none">
+            Trainer
+          </h1>
         </div>
-        <div className="text-6xl font-serif font-bold tabular-nums my-1">
+        <WalletBar />
+      </header>
+
+      <section className="paper p-6 w-full text-center">
+        <div className="text-xs uppercase tracking-wider text-stone-500 mb-2">
+          {title}
+        </div>
+        <div className="font-serif text-7xl font-bold tabular-nums leading-none my-1">
           {score}
         </div>
-        <div className="text-stone-500 text-sm">
-          von {total} Aufgaben in {durationSeconds}s
+        <div className="text-stone-600 text-sm mt-2">
+          {score} of {total} solved · {durationSeconds}s
         </div>
+        <div className="text-stone-500 text-xs mt-1 italic">{subtitle}</div>
 
-        <div className="mt-3 text-xs">
+        <div className="mt-4 text-xs">
           {!wallet && (
             <span className="text-amber-700">
-              Wallet verbinden, um deinen Score zu speichern.
+              Connect a wallet to save your score.
             </span>
           )}
           {wallet && submitted && (
-            <span className="text-emerald-700">Score gespeichert ✓</span>
+            <span className="text-emerald-700 font-medium">
+              Score saved ✓
+            </span>
           )}
           {wallet && !submitted && !submitError && (
-            <span className="text-stone-500">Speichere…</span>
+            <span className="text-stone-500">Saving…</span>
           )}
           {submitError && (
-            <span className="text-rose-700">Fehler: {submitError}</span>
+            <span className="text-rose-700">{submitError}</span>
           )}
         </div>
 
-        <button
-          onClick={onRestart}
-          className="mt-6 w-full py-3 rounded-lg bg-stone-800 text-white font-semibold shadow active:bg-stone-900"
-        >
-          Nochmal spielen
+        <button onClick={onRestart} className="btn-primary w-full mt-6">
+          Play again
         </button>
-      </div>
+      </section>
 
-      <div className="w-full">
-        <h2 className="text-sm font-semibold text-stone-700 mb-2 px-1">
-          Leaderboard
-        </h2>
+      <section className="w-full">
+        <div className="flex items-baseline justify-between px-1 mb-2">
+          <h3 className="text-sm font-semibold text-stone-700 uppercase tracking-wider">
+            Leaderboard
+          </h3>
+          <span className="text-xs text-stone-500">Top 100</span>
+        </div>
         <Leaderboard highlightWallet={wallet} />
-      </div>
+      </section>
     </div>
   );
 }

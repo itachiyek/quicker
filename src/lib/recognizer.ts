@@ -13,22 +13,22 @@ export function loadModel(progress: ProgressCb = () => {}): Promise<tf.LayersMod
   if (modelPromise) return modelPromise;
   modelPromise = (async () => {
     try {
-      progress("Lade Modell…", 0.1);
+      progress("Loading model…", 0.1);
       const cached = await tf.loadLayersModel(CACHE_KEY);
-      progress("Bereit!", 1);
+      progress("Ready", 1);
       return cached;
     } catch {
       // not cached yet
     }
-    progress("Lade Modell…", 0.3);
+    progress("Loading model…", 0.3);
     const model = await tf.loadLayersModel(BUNDLED_MODEL_URL);
-    progress("Cache wird angelegt…", 0.85);
+    progress("Caching…", 0.85);
     try {
       await model.save(CACHE_KEY);
     } catch {
       // non-fatal
     }
-    progress("Bereit!", 1);
+    progress("Ready", 1);
     return model;
   })();
   return modelPromise;

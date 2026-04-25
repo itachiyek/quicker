@@ -118,20 +118,37 @@ export default function GameScreen({
     }, RECOGNIZE_DELAY_MS);
   }, [tryRecognize]);
 
+  const timePct = Math.max(
+    0,
+    Math.min(100, (timeLeft / ROUND_DURATION) * 100),
+  );
+
   return (
     <div className="flex-1 flex flex-col p-3 sm:p-4 gap-3 max-w-md w-full mx-auto">
       {/* HUD */}
-      <div className="flex items-center justify-between text-stone-700 font-medium">
-        <div className="bg-white rounded-md border border-stone-300 px-3 py-1 shadow-sm">
-          <span className="text-stone-500 text-xs mr-1">Richtig</span>
-          <span className="tabular-nums font-bold">{score}</span>
+      <div className="flex items-center gap-3">
+        <div className="panel px-3 py-1.5 flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-wider text-stone-500">
+            Score
+          </span>
+          <span className="tabular-nums font-bold text-lg">{score}</span>
         </div>
-        <div
-          className={`bg-white rounded-md border border-stone-300 px-3 py-1 shadow-sm tabular-nums font-bold ${
-            timeLeft <= 10 ? "text-rose-600" : ""
-          }`}
-        >
-          {timeLeft}s
+        <div className="flex-1 panel px-3 py-1.5 flex items-center gap-2">
+          <div className="flex-1 h-1.5 bg-stone-200 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-[width] duration-700 ease-linear ${
+                timeLeft <= 10 ? "bg-rose-500" : "bg-stone-700"
+              }`}
+              style={{ width: `${timePct}%` }}
+            />
+          </div>
+          <span
+            className={`tabular-nums font-bold text-sm ${
+              timeLeft <= 10 ? "text-rose-600" : "text-stone-700"
+            }`}
+          >
+            {timeLeft}s
+          </span>
         </div>
       </div>
 

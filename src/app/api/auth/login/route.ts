@@ -4,57 +4,101 @@ import { verifySiweSignature } from "@/lib/siwe";
 import { isAddress } from "viem";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
+// Unified login endpoint. Accepts either:
+//   1. World App (MiniKit) payload:
+//      { source: "minikit", payload: {address, message, signature, ...}, nonce }
+//   2. Plain SIWE / wagmi:
+//      { source: "wagmi", message, signature, address }  (nonce is read from session)
+//
+// Verifies the signature, persists the wallet in the iron-session cookie,
+// and ensures a player row exists.
+
+type WagmiBody = {
+  source: "wagmi";
+  message: string;
+  signature: `0x${string}`;
+  address: string;
+};
+
+type MiniKitBody = {
+  source: "minikit";
+  nonce: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  payload: any;
+};
+
 export async function POST(req: NextRequest) {
-  const body = (await req.json()) as {
-    message?: string;
-    signature?: string;
-    address?: string;
-  };
-
-  if (!body.message || !body.signature || !body.address) {
-    return NextResponse.json({ error: "Missing fields" }, { status: 400 });
-  }
-  if (!isAddress(body.address)) {
-    return NextResponse.json({ error: "Bad address" }, { status: 400 });
-  }
-
+  const body = (await req.json()) as WagmiBody | MiniKitBody;
   const session = await getSession();
   const expectedNonce = session.nonce;
   if (!expectedNonce) {
     return NextResponse.json({ error: "No nonce" }, { status: 400 });
   }
-  if (!body.message.includes(`Nonce: ${expectedNonce}`)) {
-    return NextResponse.json({ error: "Nonce mismatch" }, { status: 400 });
-  }
-  if (!body.message.toLowerCase().includes(body.address.toLowerCase())) {
-    return NextResponse.json({ error: "Address mismatch" }, { status: 400 });
+
+  let wallet: string | null = null;
+
+  if (body.source === "minikit") {
+    if (body.nonce !== expectedNonce) {
+      return NextResponse.json({ error: "Bad nonce" }, { status: 400 });
+    }
+    try {
+      const { verifySiweMessage } = await import(
+        "@worldcoin/minikit-js/siwe"
+      );
+      const verification = await verifySiweMessage(body.payload, body.nonce);
+      if (!verification.isValid) {
+        return NextResponse.json({ error: "Invalid SIWE" }, { status: 401 });
+      }
+      const addr =
+        verification.siweMessageData?.address ?? body.payload?.address;
+      if (!addr || !isAddress(addr)) {
+        return NextResponse.json({ error: "Bad address" }, { status: 401 });
+      }
+      wallet = addr.toLowerCase();
+    } catch (e) {
+      return NextResponse.json(
+        { error: e instanceof Error ? e.message : "Verify failed" },
+        { status: 400 },
+      );
+    }
+  } else if (body.source === "wagmi") {
+    if (!body.message || !body.signature || !body.address) {
+      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    }
+    if (!isAddress(body.address)) {
+      return NextResponse.json({ error: "Bad address" }, { status: 400 });
+    }
+    if (!body.message.includes(`Nonce: ${expectedNonce}`)) {
+      return NextResponse.json({ error: "Nonce mismatch" }, { status: 400 });
+    }
+    if (!body.message.toLowerCase().includes(body.address.toLowerCase())) {
+      return NextResponse.json({ error: "Address mismatch" }, { status: 400 });
+    }
+    const ok = await verifySiweSignature(
+      body.message,
+      body.signature,
+      body.address as `0x${string}`,
+    );
+    if (!ok) {
+      return NextResponse.json({ error: "Bad signature" }, { status: 401 });
+    }
+    wallet = body.address.toLowerCase();
+  } else {
+    return NextResponse.json({ error: "Unknown source" }, { status: 400 });
   }
 
-  const ok = await verifySiweSignature(
-    body.message,
-    body.signature as `0x${string}`,
-    body.address as `0x${string}`,
-  );
-  if (!ok) {
-    return NextResponse.json({ error: "Bad signature" }, { status: 401 });
-  }
-
-  // Persist a normalized lowercase wallet address.
-  const wallet = body.address.toLowerCase();
-  session.wallet = wallet;
+  session.wallet = wallet!;
   session.nonce = undefined;
   await session.save();
 
-  // Best-effort: ensure player row exists.
   const sb = getSupabaseAdmin();
   if (sb) {
     await sb
       .from("quicker_players")
       .upsert(
-        { wallet, display_name: null },
+        { wallet: wallet! },
         { onConflict: "wallet", ignoreDuplicates: true },
       );
   }
-
   return NextResponse.json({ wallet });
 }
