@@ -3,14 +3,17 @@
 import { useEffect, useState } from "react";
 import { loadModel } from "@/lib/recognizer";
 import { playStart, unlockAudio } from "@/lib/sounds";
+import WalletBar from "./WalletBar";
+import Leaderboard from "./Leaderboard";
+import { useSession } from "@/hooks/useSession";
 
 export default function StartScreen({ onStart }: { onStart: () => void }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [msg, setMsg] = useState("");
+  const { wallet } = useSession();
 
   useEffect(() => {
-    // Warmup: kick off model load early.
     loadModel((m, p) => {
       setMsg(m);
       if (typeof p === "number") setProgress(p);
@@ -29,22 +32,30 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
       onStart();
     } catch {
       setMsg("Fehler beim Laden des Modells. Bitte neu laden.");
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 gap-8">
+    <div className="flex-1 flex flex-col items-center p-4 gap-5 max-w-md w-full mx-auto pt-6">
+      <div className="w-full flex justify-end">
+        <WalletBar />
+      </div>
+
       <div className="text-center">
         <h1 className="text-5xl font-serif font-bold tracking-tight">
           Brain Trainer
         </h1>
-        <p className="mt-2 text-stone-600">Kopfrechnen mit Handschrifterkennung</p>
+        <p className="mt-1 text-stone-600 text-sm">
+          Kopfrechnen mit Handschrifterkennung
+        </p>
       </div>
-      <div className="bg-white rounded-xl border border-stone-300 shadow-md p-6 max-w-sm w-full">
-        <ul className="text-stone-700 text-sm space-y-2 mb-6">
-          <li>• 60 Sekunden so viele Aufgaben wie möglich</li>
-          <li>• Ergebnis unten ins Feld zeichnen</li>
-          <li>• Ziffern werden automatisch erkannt</li>
+
+      <div className="bg-white rounded-xl border border-stone-300 shadow-md p-5 w-full">
+        <ul className="text-stone-700 text-sm space-y-1.5 mb-5">
+          <li>• 60 Sekunden, so viele Aufgaben wie möglich</li>
+          <li>• Antwort unten ins Feld zeichnen</li>
+          <li>• Verbinde Wallet für das Leaderboard</li>
         </ul>
         <button
           onClick={handleStart}
@@ -64,6 +75,13 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
             <p className="mt-2 text-xs text-stone-500 text-center">{msg}</p>
           </div>
         )}
+      </div>
+
+      <div className="w-full">
+        <h2 className="text-sm font-semibold text-stone-700 mb-2 px-1">
+          Leaderboard
+        </h2>
+        <Leaderboard highlightWallet={wallet} />
       </div>
     </div>
   );

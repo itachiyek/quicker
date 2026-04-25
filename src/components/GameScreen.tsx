@@ -18,7 +18,7 @@ type Feedback = { kind: "correct" | "wrong"; digit: number } | null;
 export default function GameScreen({
   onFinish,
 }: {
-  onFinish: (score: number, total: number) => void;
+  onFinish: (score: number, total: number, durationSeconds: number) => void;
 }) {
   const [equations] = useState<Equation[]>(() => makeEquations(POOL_SIZE));
   const [index, setIndex] = useState(0);
@@ -58,7 +58,7 @@ export default function GameScreen({
           window.clearInterval(id);
           if (!finishedRef.current) {
             finishedRef.current = true;
-            onFinish(scoreRef.current, indexRef.current);
+            onFinish(scoreRef.current, indexRef.current, ROUND_DURATION);
           }
           return 0;
         }

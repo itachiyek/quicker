@@ -8,20 +8,20 @@ import EndScreen from "@/components/EndScreen";
 type Phase =
   | { kind: "start" }
   | { kind: "playing" }
-  | { kind: "end"; score: number; total: number };
+  | { kind: "end"; score: number; total: number; durationSeconds: number };
 
 export default function Home() {
   const [phase, setPhase] = useState<Phase>({ kind: "start" });
 
   return (
-    <main className="flex-1 flex flex-col w-full min-h-screen">
+    <main className="flex-1 flex flex-col w-full">
       {phase.kind === "start" && (
         <StartScreen onStart={() => setPhase({ kind: "playing" })} />
       )}
       {phase.kind === "playing" && (
         <GameScreen
-          onFinish={(score, total) =>
-            setPhase({ kind: "end", score, total })
+          onFinish={(score, total, durationSeconds) =>
+            setPhase({ kind: "end", score, total, durationSeconds })
           }
         />
       )}
@@ -29,6 +29,7 @@ export default function Home() {
         <EndScreen
           score={phase.score}
           total={phase.total}
+          durationSeconds={phase.durationSeconds}
           onRestart={() => setPhase({ kind: "start" })}
         />
       )}
