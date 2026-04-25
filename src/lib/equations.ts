@@ -7,53 +7,69 @@ export type Equation = {
 const rand = (min: number, max: number) =>
   Math.floor(Math.random() * (max - min + 1)) + min;
 
-// Standard 2-operand equation. Mix of single- and two-digit results,
-// with a smaller share of multiplication.
-function makeEquation2(id: number): Equation {
-  const ops = ["+", "+", "-", "-", "×"] as const;
-  const op = ops[rand(0, ops.length - 1)];
-
-  let a: number;
-  let b: number;
-  let answer: number;
-  let text: string;
-
-  if (op === "+") {
-    if (Math.random() < 0.5) {
-      a = rand(5, 39);
-      b = rand(5, 39);
-    } else {
-      a = rand(1, 9);
-      b = rand(1, 9);
-    }
-    answer = a + b;
-    text = `${a}+${b}`;
-  } else if (op === "-") {
-    if (Math.random() < 0.4) {
-      a = rand(20, 80);
-      b = rand(5, 30);
-    } else {
-      a = rand(2, 19);
-      b = rand(1, a);
-    }
-    answer = a - b;
-    text = `${a}-${b}`;
-  } else {
-    a = rand(2, 9);
-    b = rand(2, 9);
-    answer = a * b;
-    text = `${a}×${b}`;
+// Tier 1 (0-2): warm-up. Single-digit add/sub with single-digit result.
+// 2+3, 5-1, 7-4 — barely-think problems.
+function makeWarmup(id: number): Equation {
+  if (Math.random() < 0.55) {
+    const a = rand(1, 5);
+    const b = rand(1, 9 - a);
+    return { id, text: `${a}+${b}=`, answer: a + b };
   }
-  return { id, text: `${text}=`, answer };
+  const a = rand(3, 9);
+  const b = rand(1, a - 1);
+  return { id, text: `${a}-${b}=`, answer: a - b };
 }
 
-// Build an N-operand additive chain that always stays in 0..99 and uses
-// only + and -. Each operand is single-digit so the equation stays
-// readable and finger-paintable in the time given.
-function makeEquationChain(operandCount: number, id: number): Equation {
+// Tier 2 (3-5): single-digit + and -, two-digit results OK.
+// 7+8=15, 12-7=5
+function makeEasyAddSub(id: number): Equation {
+  if (Math.random() < 0.55) {
+    const a = rand(2, 9);
+    const b = rand(2, 9);
+    return { id, text: `${a}+${b}=`, answer: a + b };
+  }
+  const a = rand(8, 18);
+  const b = rand(1, a);
+  return { id, text: `${a}-${b}=`, answer: a - b };
+}
+
+// Tier 3 (6-9): introduce small multiplication tables (2×2 - 5×5).
+function makeBasicMixed(id: number): Equation {
+  const r = Math.random();
+  if (r < 0.45) {
+    const a = rand(2, 5);
+    const b = rand(2, 5);
+    return { id, text: `${a}×${b}=`, answer: a * b };
+  }
+  return makeEasyAddSub(id);
+}
+
+// Tier 4 (10-14): two-digit operands and the full multiplication tables.
+function makeHarder2Op(id: number): Equation {
+  const r = Math.random();
+  if (r < 0.35) {
+    // 2-digit add/sub
+    if (Math.random() < 0.5) {
+      const a = rand(10, 49);
+      const b = rand(5, Math.min(50, 99 - a));
+      return { id, text: `${a}+${b}=`, answer: a + b };
+    }
+    const big = rand(20, 80);
+    const small = rand(5, big - 1);
+    return { id, text: `${big}-${small}=`, answer: big - small };
+  }
+  if (r < 0.7) {
+    const a = rand(2, 9);
+    const b = rand(2, 9);
+    return { id, text: `${a}×${b}=`, answer: a * b };
+  }
+  return makeEasyAddSub(id);
+}
+
+// Build an N-operand additive chain that stays in 0..99.
+function makeChain(operandCount: number, id: number): Equation {
   let value = rand(2, 9);
   let text = String(value);
-
   for (let i = 1; i < operandCount; i++) {
     type Candidate = { op: "+" | "-"; operand: number; next: number };
     const candidates: Candidate[] = [];
@@ -61,9 +77,7 @@ function makeEquationChain(operandCount: number, id: number): Equation {
       const op: "+" | "-" = Math.random() < 0.5 ? "+" : "-";
       const operand = rand(1, 9);
       const next = op === "+" ? value + operand : value - operand;
-      if (next >= 0 && next <= 99) {
-        candidates.push({ op, operand, next });
-      }
+      if (next >= 0 && next <= 99) candidates.push({ op, operand, next });
     }
     if (candidates.length === 0) {
       value += 1;
@@ -77,14 +91,22 @@ function makeEquationChain(operandCount: number, id: number): Equation {
   return { id, text: `${text}=`, answer: value };
 }
 
-// Build a single equation for the given index in the round. The index
-// equals the number of correctly-answered problems so we ramp difficulty
-// directly off score: 2 numbers up to 9 correct, 3 numbers up to 19, then
-// 4 numbers afterwards.
+// Score-driven ramp. The pool index equals the number of correct answers,
+// so problem N becomes available exactly when the player has earned it.
+//
+//   0..2   warm-up   (single-digit, single-digit ans)
+//   3..5   easy      (single-digit, two-digit ans)
+//   6..9   mixed     (small × tables)
+//   10..14 harder    (full × tables, 2-digit operands)
+//   15..21 chains    (3-term + / -)
+//   22+    long      (4-term + / -)
 export function makeEquation(id: number): Equation {
-  if (id >= 20) return makeEquationChain(4, id);
-  if (id >= 10) return makeEquationChain(3, id);
-  return makeEquation2(id);
+  if (id < 3) return makeWarmup(id);
+  if (id < 6) return makeEasyAddSub(id);
+  if (id < 10) return makeBasicMixed(id);
+  if (id < 15) return makeHarder2Op(id);
+  if (id < 22) return makeChain(3, id);
+  return makeChain(4, id);
 }
 
 export function makeEquations(count: number): Equation[] {
