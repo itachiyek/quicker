@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   const sb = getSupabaseAdmin();
   if (sb) {
     await sb
-      .from("players")
+      .from("quicker_players")
       .upsert(
         { wallet, display_name: null },
         { onConflict: "wallet", ignoreDuplicates: true },

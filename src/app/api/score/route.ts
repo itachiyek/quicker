@@ -34,13 +34,13 @@ export async function POST(req: NextRequest) {
   }
 
   await sb
-    .from("players")
+    .from("quicker_players")
     .upsert(
       { wallet: session.wallet },
       { onConflict: "wallet", ignoreDuplicates: true },
     );
 
-  const { error } = await sb.from("scores").insert({
+  const { error } = await sb.from("quicker_scores").insert({
     wallet: session.wallet,
     score,
     total,

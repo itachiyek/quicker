@@ -11,8 +11,6 @@ export function getSupabaseAdmin(): SupabaseClient | null {
   if (!url || !key) return null;
   cached = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    db: { schema: "quicker" as any },
   });
   return cached;
 }

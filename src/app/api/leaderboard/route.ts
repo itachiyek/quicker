@@ -9,7 +9,7 @@ export async function GET() {
     return NextResponse.json({ entries: [], configured: false });
   }
   const { data, error } = await sb
-    .from("players")
+    .from("quicker_players")
     .select("wallet, display_name, best_score, games_played, updated_at")
     .order("best_score", { ascending: false })
     .order("updated_at", { ascending: false })
