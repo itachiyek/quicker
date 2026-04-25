@@ -114,6 +114,8 @@ const DrawCanvas = forwardRef<DrawCanvasHandle, Props>(function DrawCanvas(
     ctx.stroke();
     lastPosRef.current = pos;
     dirtyRef.current = true;
+    // Continuous pencil-scratch sound; rate-limited inside playStroke.
+    playStroke();
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
