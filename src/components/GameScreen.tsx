@@ -10,7 +10,7 @@ import type * as tf from "@tensorflow/tfjs";
 
 const ROUND_DURATION = 60; // seconds
 const VISIBLE_ROWS = 3;
-const POOL_SIZE = 60;
+const POOL_SIZE = 120;
 // Single-digit problems get fast feedback; two-digit answers need a slightly
 // longer pause so the second digit isn't started after we've already fired.
 const RECOGNIZE_DELAY_MS_1 = 280;
