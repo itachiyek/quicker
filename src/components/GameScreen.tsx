@@ -29,16 +29,15 @@ export default function GameScreen({
 
   const canvasRef = useRef<DrawCanvasHandle | null>(null);
   const recognizeTimer = useRef<number | null>(null);
+  const feedbackTimer = useRef<number | null>(null);
   const finishedRef = useRef(false);
   const indexRef = useRef(0);
   const scoreRef = useRef(0);
-  const wrongDigitsRef = useRef<Set<number>>(new Set());
   const expectedAnswerRef = useRef<number>(equations[0].answer);
 
   useEffect(() => {
     indexRef.current = index;
     expectedAnswerRef.current = equations[index].answer;
-    wrongDigitsRef.current = new Set();
     setFeedback(null);
   }, [index, equations]);
 
@@ -100,15 +99,16 @@ export default function GameScreen({
       setFeedback({ kind: "correct", digit: result.digit });
       playCorrect();
       window.setTimeout(advance, 180);
-    } else if (!wrongDigitsRef.current.has(result.digit)) {
-      wrongDigitsRef.current.add(result.digit);
-      setFeedback({ kind: "wrong", digit: result.digit });
-      playWrong();
-      window.setTimeout(() => {
-        canvasRef.current?.clear();
-        setFeedback(null);
-      }, 350);
+      return;
     }
+
+    // Wrong: clear the canvas immediately so any new stroke isn't lost to a
+    // delayed clear, and show what we read briefly in the math panel.
+    canvasRef.current?.clear();
+    setFeedback({ kind: "wrong", digit: result.digit });
+    playWrong();
+    if (feedbackTimer.current) window.clearTimeout(feedbackTimer.current);
+    feedbackTimer.current = window.setTimeout(() => setFeedback(null), 500);
   }, [model, advance]);
 
   const onStrokeEnd = useCallback(() => {
