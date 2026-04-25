@@ -5,6 +5,7 @@ import { loadModel } from "@/lib/recognizer";
 import { playStart, unlockAudio } from "@/lib/sounds";
 import WalletBar from "./WalletBar";
 import Leaderboard from "./Leaderboard";
+import Logo from "./Logo";
 import { useSession } from "@/hooks/useSession";
 
 type PersonalStats = {
@@ -96,10 +97,8 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
     <div className="flex-1 flex flex-col items-center max-w-md w-full mx-auto px-4 pt-6 pb-12 gap-5">
       {/* Top bar */}
       <header className="w-full flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-2xl bg-stone-900 text-white flex items-center justify-center text-lg font-bold shadow-md">
-            B
-          </div>
+        <div className="flex items-center gap-2.5">
+          <Logo size={36} />
           <div className="leading-tight">
             <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
               Brain
@@ -201,10 +200,6 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
         <Leaderboard highlightWallet={wallet} />
       </section>
 
-      <footer className="text-[10px] text-stone-400 text-center px-2">
-        Inspired by Dr. Kawashima&apos;s Brain Training. Handwriting model
-        trained on MNIST.
-      </footer>
     </div>
   );
 }

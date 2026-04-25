@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import StartScreen from "@/components/StartScreen";
 import GameScreen from "@/components/GameScreen";
 import EndScreen from "@/components/EndScreen";
+import LoadingScreen from "@/components/LoadingScreen";
 import { useSession } from "@/hooks/useSession";
 
 type Phase =
@@ -22,11 +23,7 @@ export default function Home() {
   }, [wallet, loading, router]);
 
   if (loading || !wallet) {
-    return (
-      <main className="flex-1 flex items-center justify-center text-stone-500 text-sm">
-        Loading…
-      </main>
-    );
+    return <LoadingScreen label={loading ? "Checking session" : "Redirecting"} />;
   }
 
   return (

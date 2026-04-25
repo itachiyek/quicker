@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { playEnd } from "@/lib/sounds";
 import Leaderboard from "./Leaderboard";
 import WalletBar from "./WalletBar";
+import Logo from "./Logo";
 import { useSession } from "@/hooks/useSession";
 
 export default function EndScreen({
@@ -65,16 +66,19 @@ export default function EndScreen({
 
   return (
     <div className="flex-1 flex flex-col items-center p-4 gap-6 max-w-md w-full mx-auto pt-5 pb-10">
-      <header className="w-full flex items-start justify-between gap-3">
-        <div>
-          <div className="text-xs uppercase tracking-[0.2em] text-stone-500">
-            Brain
+      <header className="w-full flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <Logo size={36} />
+          <div className="leading-tight">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
+              Brain
+            </div>
+            <div className="text-base font-serif font-bold tracking-tight">
+              Trainer
+            </div>
           </div>
-          <h1 className="text-3xl font-serif font-bold tracking-tight leading-none">
-            Trainer
-          </h1>
         </div>
-        <WalletBar />
+        <WalletBar compact />
       </header>
 
       <section className="paper p-6 w-full text-center">
