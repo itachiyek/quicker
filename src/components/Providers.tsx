@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RainbowKitProvider, lightTheme } from "@rainbow-me/rainbowkit";
 import { wagmiConfig } from "@/lib/wagmi";
 import { MiniKit } from "@worldcoin/minikit-js";
+import { SessionProvider } from "@/hooks/useSession";
 import "@rainbow-me/rainbowkit/styles.css";
 
 function MiniKitInit() {
@@ -39,7 +40,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           modalSize="compact"
         >
           <MiniKitInit />
-          {children}
+          <SessionProvider>{children}</SessionProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

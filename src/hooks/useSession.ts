@@ -1,17 +1,34 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
-type Me = { wallet: string | null };
+type SessionShape = {
+  wallet: string | null;
+  loading: boolean;
+  refresh: () => Promise<void>;
+  logout: () => Promise<void>;
+  setWallet: (w: string | null) => void;
+};
 
-export function useSession() {
+const SessionContext = createContext<SessionShape | null>(null);
+
+export function SessionProvider({ children }: { children: ReactNode }) {
   const [wallet, setWallet] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     try {
       const r = await fetch("/api/auth/me", { cache: "no-store" });
-      const data = (await r.json()) as Me;
+      const data = (await r.json()) as { wallet: string | null };
       setWallet(data.wallet);
     } catch {
       setWallet(null);
@@ -29,5 +46,26 @@ export function useSession() {
     refresh();
   }, [refresh]);
 
-  return { wallet, loading, refresh, logout };
+  const value = useMemo<SessionShape>(
+    () => ({ wallet, loading, refresh, logout, setWallet }),
+    [wallet, loading, refresh, logout],
+  );
+
+  return createElement(SessionContext.Provider, { value }, children);
+}
+
+export function useSession(): SessionShape {
+  const ctx = useContext(SessionContext);
+  if (!ctx) {
+    // Defensive default for any tree that forgot the provider; behaves like a
+    // not-signed-in session and won't crash.
+    return {
+      wallet: null,
+      loading: false,
+      refresh: async () => {},
+      logout: async () => {},
+      setWallet: () => {},
+    };
+  }
+  return ctx;
 }
