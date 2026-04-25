@@ -14,7 +14,7 @@ const POOL_SIZE = 60;
 // Single-digit problems get fast feedback; two-digit answers need a slightly
 // longer pause so the second digit isn't started after we've already fired.
 const RECOGNIZE_DELAY_MS_1 = 280;
-const RECOGNIZE_DELAY_MS_2 = 550;
+const RECOGNIZE_DELAY_MS_2 = 750;
 
 type Feedback = { kind: "correct" | "wrong"; value: string } | null;
 

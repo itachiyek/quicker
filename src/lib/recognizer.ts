@@ -45,8 +45,8 @@ function findDigitRegions(canvas: HTMLCanvasElement): Region[] {
   const h = canvas.height;
   const data = ctx.getImageData(0, 0, w, h).data;
 
-  // Per-column "ink" sum + per-pixel ink lookup.
-  const colInk = new Float32Array(w);
+  // Per-column ink count (pixels above ink threshold) + per-pixel ink lookup.
+  const colInk = new Uint16Array(w);
   const ink = new Uint8Array(w * h);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -54,24 +54,27 @@ function findDigitRegions(canvas: HTMLCanvasElement): Region[] {
       const a = data[i + 3] / 255;
       const r = data[i];
       const v = a * (1 - r / 255);
-      if (v > 0.15) {
+      if (v > 0.1) {
         ink[y * w + x] = 1;
-        colInk[x] += v;
+        colInk[x]++;
       }
     }
   }
 
-  // Threshold for "this column has ink".
-  const colThreshold = h * 0.005;
+  // A column counts as "inked" if it has at least 1 ink pixel — generous,
+  // because stroke edges are anti-aliased thin.
+  const colThreshold = 1;
   // A blank run this long is treated as a separator between digits.
-  const minGap = Math.max(8, Math.floor(h * 0.12));
+  // ~6% of canvas height tracks natural inter-digit spacing for normal
+  // handwriting without splitting connected glyphs.
+  const minGap = Math.max(6, Math.floor(h * 0.06));
 
-  const regions: Region[] = [];
+  const rawRegions: Region[] = [];
   let inRegion = false;
   let start = 0;
   let blankRun = 0;
   for (let x = 0; x < w; x++) {
-    if (colInk[x] > colThreshold) {
+    if (colInk[x] >= colThreshold) {
       if (!inRegion) {
         start = x;
         inRegion = true;
@@ -80,7 +83,7 @@ function findDigitRegions(canvas: HTMLCanvasElement): Region[] {
     } else if (inRegion) {
       blankRun++;
       if (blankRun >= minGap) {
-        regions.push({
+        rawRegions.push({
           startX: start,
           endX: x - blankRun,
           minY: 0,
@@ -91,7 +94,27 @@ function findDigitRegions(canvas: HTMLCanvasElement): Region[] {
     }
   }
   if (inRegion) {
-    regions.push({ startX: start, endX: w - 1, minY: 0, maxY: h - 1 });
+    rawRegions.push({ startX: start, endX: w - 1, minY: 0, maxY: h - 1 });
+  }
+
+  // Merge adjacent regions whose gap is smaller than ~25% of either
+  // region's width. This protects digits with locally-disconnected strokes
+  // (rare, but possible) while still leaving real two-digit gaps unmerged.
+  const regions: Region[] = [];
+  for (const r of rawRegions) {
+    if (regions.length === 0) {
+      regions.push(r);
+      continue;
+    }
+    const last = regions[regions.length - 1];
+    const gap = r.startX - last.endX;
+    const lastW = last.endX - last.startX + 1;
+    const curW = r.endX - r.startX + 1;
+    if (gap < Math.min(lastW, curW) * 0.25) {
+      last.endX = r.endX;
+    } else {
+      regions.push(r);
+    }
   }
 
   // Tighten vertical bounds per region.
