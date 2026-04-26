@@ -3,20 +3,19 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import WalletBar from "@/components/WalletBar";
-import LoadingScreen from "@/components/LoadingScreen";
 import { LogoWordmark } from "@/components/Logo";
 import { useSession } from "@/hooks/useSession";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { wallet, loading } = useSession();
+  const { wallet } = useSession();
 
+  // Once a session shows up, hop to the home page. We don't gate on
+  // `loading` here so the page never shows a blank/splash state — the
+  // login UI is fine to render while we're still waiting on /me.
   useEffect(() => {
-    if (!loading && wallet) router.replace("/");
-  }, [wallet, loading, router]);
-
-  if (loading) return <LoadingScreen label="Loading" />;
-  if (wallet) return <LoadingScreen label="Signed in" />;
+    if (wallet) router.replace("/");
+  }, [wallet, router]);
 
   return (
     <main className="flex-1 flex flex-col items-center justify-center px-5 pb-8 max-w-md w-full mx-auto">

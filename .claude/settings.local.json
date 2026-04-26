@@ -35,7 +35,14 @@
       "Bash(curl -s \"https://api.dexscreener.com/latest/dex/tokens/0x2cFc85d8E48F8EAB294be644d9E25C3030863003\")",
       "Bash(node -e ' *)",
       "mcp__79e26106-b63f-4698-8031-a8086cb58766__execute_sql",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(curl -s -o /dev/null -w \"/api/auth/me: %{http_code} \\(%{time_total}s\\)\\\\n\" https://quicker-one.vercel.app/api/auth/me)",
+      "Bash(curl -s -L https://quicker-one.vercel.app/login)",
+      "Bash(curl -s -L https://quicker-one.vercel.app/)",
+      "Bash(curl -sS -w \"\\\\nHTTP %{http_code} in %{time_total}s\\\\n\" https://quicker-one.vercel.app/api/auth/me)",
+      "Bash(curl -sS -w \"\\\\nHTTP %{http_code} in %{time_total}s\\\\n\" https://quicker-one.vercel.app/api/leaderboard)",
+      "Bash(curl -sS -w \"\\\\nHTTP %{http_code} in %{time_total}s\\\\n\" https://quicker-one.vercel.app/api/contest/weekly)",
+      "Bash(curl -sS -w \"\\\\nHTTP %{http_code} in %{time_total}s\\\\n\" https://quicker-one.vercel.app/api/play/status)"
     ]
   }
 }

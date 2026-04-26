@@ -44,6 +44,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     refresh();
+    // Safety net: if /api/auth/me hangs (network issue, broken backend),
+    // never stay stuck on a loading splash. After 4s, surface as
+    // \"not signed in\" and let the page recover.
+    const safety = window.setTimeout(() => setLoading(false), 4000);
+    return () => window.clearTimeout(safety);
   }, [refresh]);
 
   const value = useMemo<SessionShape>(
@@ -57,8 +62,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 export function useSession(): SessionShape {
   const ctx = useContext(SessionContext);
   if (!ctx) {
-    // Defensive default for any tree that forgot the provider; behaves like a
-    // not-signed-in session and won't crash.
     return {
       wallet: null,
       loading: false,

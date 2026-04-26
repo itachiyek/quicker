@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import LoadingScreen from "@/components/LoadingScreen";
 import { useSession } from "@/hooks/useSession";
 
 type Entry = {
@@ -74,8 +73,6 @@ export default function ContestPage() {
     data?.contest && !data.contest.ended ? data.contest.ends_at : undefined,
   );
 
-  if (loading || !wallet) return <LoadingScreen label="Loading" />;
-
   const slots: (Entry | null)[] = Array.from({ length: 10 }, (_, i) =>
     data?.entries[i] ?? null,
   );
@@ -99,35 +96,35 @@ export default function ContestPage() {
 
       <section className="card-glass w-full p-5 text-center">
         <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
-          {data?.contest?.name ?? "Contest"} · pool
+          {data?.contest?.name ?? "Weekly Contest"} · pool
         </div>
         <div className="font-serif text-5xl font-extrabold italic tabular-nums my-1 gradient-text">
           {data?.pool_wld ?? 200} WLD
         </div>
-        <div className="text-xs text-stone-500">
-          Top 10 split it
-        </div>
+        <div className="text-xs text-stone-500">Top 10 split it</div>
         <div className="mt-3">
           {ended ? (
             <span className="inline-flex items-center gap-1.5 chip">
               <span className="w-1.5 h-1.5 rounded-full bg-stone-400" />
               Ended {endedAt ? endedAt.toLocaleDateString() : ""}
             </span>
-          ) : (
+          ) : data?.contest ? (
             <span className="inline-flex items-center gap-1.5 chip">
               <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
               {remaining} remaining
             </span>
-          )}
+          ) : null}
         </div>
       </section>
 
       <section className="w-full">
         <div className="flex items-baseline justify-between px-1 mb-2">
           <h3 className="text-xs font-semibold text-stone-700 uppercase tracking-wider">
-            Final standings
+            {ended ? "Final standings" : "Standings"}
           </h3>
-          {!ended && <span className="text-xs text-stone-500">Live</span>}
+          {!ended && data?.contest && (
+            <span className="text-xs text-stone-500">Live</span>
+          )}
         </div>
         <ol className="panel divide-y divide-stone-200 overflow-hidden">
           {slots.map((e, i) => {
