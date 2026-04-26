@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import StartScreen from "@/components/StartScreen";
 import GameScreen from "@/components/GameScreen";
 import EndScreen from "@/components/EndScreen";
-import LoadingScreen from "@/components/LoadingScreen";
 import { useSession } from "@/hooks/useSession";
 
 type Phase =
@@ -28,10 +27,11 @@ export default function Home() {
     if (!loading && !wallet) router.replace("/login");
   }, [wallet, loading, router]);
 
+  // While the session resolves (or we're about to redirect to /login) just
+  // show the background — no splash to avoid the brief "Checking session"
+  // flash on every visit.
   if (loading || !wallet) {
-    return (
-      <LoadingScreen label={loading ? "Checking session" : "Redirecting"} />
-    );
+    return <main className="flex-1" />;
   }
 
   return (
