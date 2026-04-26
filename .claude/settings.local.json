@@ -42,7 +42,13 @@
       "Bash(curl -sS -w \"\\\\nHTTP %{http_code} in %{time_total}s\\\\n\" https://quicker-one.vercel.app/api/auth/me)",
       "Bash(curl -sS -w \"\\\\nHTTP %{http_code} in %{time_total}s\\\\n\" https://quicker-one.vercel.app/api/leaderboard)",
       "Bash(curl -sS -w \"\\\\nHTTP %{http_code} in %{time_total}s\\\\n\" https://quicker-one.vercel.app/api/contest/weekly)",
-      "Bash(curl -sS -w \"\\\\nHTTP %{http_code} in %{time_total}s\\\\n\" https://quicker-one.vercel.app/api/play/status)"
+      "Bash(curl -sS -w \"\\\\nHTTP %{http_code} in %{time_total}s\\\\n\" https://quicker-one.vercel.app/api/play/status)",
+      "Bash(curl -sS -o /dev/null -w \"GET / → HTTP %{http_code} in %{time_total}s\\\\n\" https://quicker-one.vercel.app/)",
+      "Bash(curl -sS -o /dev/null -w \"GET /login → HTTP %{http_code} in %{time_total}s\\\\n\" https://quicker-one.vercel.app/login)",
+      "Bash(curl -sS https://quicker-one.vercel.app/login)",
+      "Bash(vercel inspect *)",
+      "Bash(curl -sS https://quicker-one.vercel.app/api/auth/me)",
+      "Bash(curl -sS https://quicker-one.vercel.app/)"
     ]
   }
 }

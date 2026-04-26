@@ -43,11 +43,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    refresh();
-    // Safety net: if /api/auth/me hangs (network issue, broken backend),
-    // never stay stuck on a loading splash. After 4s, surface as
-    // \"not signed in\" and let the page recover.
-    const safety = window.setTimeout(() => setLoading(false), 4000);
+    let settled = false;
+    refresh().finally(() => {
+      settled = true;
+    });
+    // Safety net: only flip loading if the fetch genuinely never returns
+    // (truly hung). Don't race against a slow-but-eventually-good response.
+    const safety = window.setTimeout(() => {
+      if (!settled) setLoading(false);
+    }, 8000);
     return () => window.clearTimeout(safety);
   }, [refresh]);
 

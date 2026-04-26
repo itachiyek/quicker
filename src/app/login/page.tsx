@@ -17,6 +17,10 @@ export default function LoginPage() {
     if (wallet) router.replace("/");
   }, [wallet, router]);
 
+  // Hide the login UI for the brief moment between session appearing and the
+  // navigation actually happening, so signed-in users don't see a flash.
+  if (wallet) return <main className="flex-1" />;
+
   return (
     <main className="flex-1 flex flex-col items-center justify-center px-5 pb-8 max-w-md w-full mx-auto">
       <div className="text-stone-900">
