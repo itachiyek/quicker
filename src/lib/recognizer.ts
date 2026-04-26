@@ -301,15 +301,26 @@ export async function recognizeHalves(
   return { digits: [left.digit, right.digit] };
 }
 
-// Returns true if there is ink on either side of the canvas split.
+// Returns true on each side if there is a meaningful amount of ink there.
+// "Meaningful" = the bounding box's longer dimension is at least ~15% of
+// canvas height. A stray pixel or a wisp from a stroke that grazed the
+// divider doesn't count, so we don't judge half-finished two-digit answers.
 export function inkPresence(
   canvas: HTMLCanvasElement,
 ): { left: boolean; right: boolean } {
   const w = canvas.width;
+  const h = canvas.height;
   const half = Math.floor(w / 2);
+  const minDim = h * 0.15;
+  const ok = (r: Region | null) => {
+    if (!r) return false;
+    const bw = r.endX - r.startX;
+    const bh = r.maxY - r.minY;
+    return Math.max(bw, bh) >= minDim;
+  };
   return {
-    left: ink_bbox_in_slice(canvas, 0, half) !== null,
-    right: ink_bbox_in_slice(canvas, half, w) !== null,
+    left: ok(ink_bbox_in_slice(canvas, 0, half)),
+    right: ok(ink_bbox_in_slice(canvas, half, w)),
   };
 }
 

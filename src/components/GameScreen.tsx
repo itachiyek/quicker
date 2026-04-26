@@ -100,6 +100,7 @@ export default function GameScreen({
   }, [onFinish]);
 
   const eq = equations[index];
+  const nextEq = equations[index + 1];
   const expectedStr = String(eq.answer);
   const isTwoDigit = expectedStr.length === 2;
 
@@ -207,9 +208,9 @@ export default function GameScreen({
         />
       </div>
 
-      {/* Question */}
-      <section className="card-glass flex items-center justify-center px-4 py-6">
-        <div className="font-serif font-bold text-5xl sm:text-6xl tracking-tight tabular-nums text-center flex items-baseline gap-2">
+      {/* Question + next-up preview */}
+      <section className="card-glass px-4 py-4 flex flex-col items-stretch gap-1">
+        <div className="font-serif font-bold text-5xl sm:text-6xl tracking-tight tabular-nums text-center flex items-baseline justify-center gap-2">
           <span>{eq.text}</span>
           <span className="min-w-[1.5ch] text-left">
             {feedback ? (
@@ -227,6 +228,14 @@ export default function GameScreen({
             )}
           </span>
         </div>
+        {nextEq && (
+          <div className="font-serif text-xl sm:text-2xl text-stone-400 text-center tabular-nums opacity-70">
+            <span className="text-[10px] uppercase tracking-wider mr-2 align-middle">
+              Next
+            </span>
+            {nextEq.text}?
+          </div>
+        )}
       </section>
 
       {/* Hint */}
