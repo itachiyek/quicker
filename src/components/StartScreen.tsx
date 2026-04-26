@@ -136,6 +136,8 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
         </section>
       )}
 
+      <ContestCard />
+
       {/* Play card */}
       <section className="card-glass w-full p-5 flex flex-col gap-4">
         <div className="flex items-center justify-between">
@@ -190,8 +192,6 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
           </div>
         )}
       </section>
-
-      <ContestCard />
 
       <section className="w-full">
         <div className="flex items-baseline justify-between px-1 mb-2">
