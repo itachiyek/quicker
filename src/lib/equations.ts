@@ -1,122 +1,147 @@
 export type Equation = {
   id: number;
-  text: string;
+  text: string; // includes the trailing "= ?"
   answer: number;
+  choices: number[]; // 4 numbers, randomized order, contains answer
 };
 
 const rand = (min: number, max: number) =>
   Math.floor(Math.random() * (max - min + 1)) + min;
 
-// All generators below return equations whose answer is in [0, 9] so the
-// recognizer only ever has to read a single digit.
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
-// Tier 1 (0-2): warm-up. Tiny add/sub.
-function makeWarmup(id: number): Equation {
+// Plausible distractors: small offsets, then an off-by-table neighbour for
+// multiplication-shaped answers, then random fillers if we still need any.
+function makeChoices(answer: number, op?: "+" | "-" | "×"): number[] {
+  const set = new Set<number>([answer]);
+  const offsets = [-1, 1, -2, 2, -10, 10, -3, 3];
+  for (const off of shuffle(offsets)) {
+    const c = answer + off;
+    if (c >= 0 && c <= 99) set.add(c);
+    if (set.size >= 4) break;
+  }
+
+  if (op === "×" && set.size < 4) {
+    // sprinkle some "wrong table" looking values
+    const candidates = [answer + 7, answer - 7, answer + 9, answer - 9];
+    for (const c of shuffle(candidates)) {
+      if (c >= 0 && c <= 99) set.add(c);
+      if (set.size >= 4) break;
+    }
+  }
+
+  while (set.size < 4) {
+    const c = rand(0, 99);
+    if (c !== answer) set.add(c);
+  }
+  return shuffle([...set]);
+}
+
+// ---- Tier generators (return raw text + answer + op) ------------------
+
+type Raw = { text: string; answer: number; op?: "+" | "-" | "×" };
+
+function warmup(): Raw {
   if (Math.random() < 0.55) {
     const a = rand(1, 5);
     const b = rand(1, 9 - a);
-    return { id, text: `${a}+${b}=`, answer: a + b };
+    return { text: `${a} + ${b}`, answer: a + b, op: "+" };
   }
   const a = rand(3, 9);
   const b = rand(1, a);
-  return { id, text: `${a}-${b}=`, answer: a - b };
+  return { text: `${a} − ${b}`, answer: a - b, op: "-" };
 }
 
-// Tier 2 (3-5): wider single-digit add/sub, still 0..9 result.
-function makeEasyAddSub(id: number): Equation {
+function easyAddSub(): Raw {
   if (Math.random() < 0.5) {
-    const sum = rand(2, 9);
-    const a = rand(1, sum - 1);
-    const b = sum - a;
-    return { id, text: `${a}+${b}=`, answer: sum };
+    const a = rand(2, 9);
+    const b = rand(2, 9);
+    return { text: `${a} + ${b}`, answer: a + b, op: "+" };
   }
+  const a = rand(8, 18);
+  const b = rand(1, a);
+  return { text: `${a} − ${b}`, answer: a - b, op: "-" };
+}
+
+function basicMul(): Raw {
+  const a = rand(2, 5);
+  const b = rand(2, 5);
+  return { text: `${a} × ${b}`, answer: a * b, op: "×" };
+}
+
+function fullMul(): Raw {
   const a = rand(2, 9);
-  const b = rand(0, a);
-  return { id, text: `${a}-${b}=`, answer: a - b };
+  const b = rand(2, 9);
+  return { text: `${a} × ${b}`, answer: a * b, op: "×" };
 }
 
-// Tier 3 (6-9): introduce small multiplication tables that fit in 0..9.
-function makeBasicMixed(id: number): Equation {
-  if (Math.random() < 0.4) {
-    const pairs: Array<[number, number]> = [
-      [2, 2],
-      [2, 3],
-      [3, 2],
-      [2, 4],
-      [4, 2],
-      [3, 3],
-      [1, 5],
-      [5, 1],
-      [1, 7],
-      [7, 1],
-      [1, 9],
-      [9, 1],
-      [1, 8],
-      [8, 1],
-    ];
-    const [a, b] = pairs[rand(0, pairs.length - 1)];
-    return { id, text: `${a}×${b}=`, answer: a * b };
+function biggerAddSub(): Raw {
+  if (Math.random() < 0.5) {
+    const a = rand(10, 49);
+    const b = rand(5, 50);
+    const sum = a + b;
+    if (sum > 99) {
+      // back off into safe range
+      const x = rand(10, 49);
+      const y = rand(5, 99 - x);
+      return { text: `${x} + ${y}`, answer: x + y, op: "+" };
+    }
+    return { text: `${a} + ${b}`, answer: sum, op: "+" };
   }
-  return makeEasyAddSub(id);
+  const a = rand(20, 90);
+  const b = rand(5, a - 1);
+  return { text: `${a} − ${b}`, answer: a - b, op: "-" };
 }
 
-// Tier 4 (10-14): two-digit operands but the answer is still 0..9 — these
-// force borrowing in your head (e.g. 23 - 17 = 6).
-function makeHarderSingle(id: number): Equation {
-  const r = Math.random();
-  if (r < 0.55) {
-    const ans = rand(0, 9);
-    const a = rand(10, 35);
-    const b = a - ans;
-    return { id, text: `${a}-${b}=`, answer: ans };
-  }
-  if (r < 0.85) {
-    return makeBasicMixed(id);
-  }
-  return makeEasyAddSub(id);
-}
-
-// Tier 5+: additive chains. Each step keeps the running value in [0..9] so
-// the final answer is also 0..9.
-function makeChain(operandCount: number, id: number): Equation {
+function chain(operandCount: number): Raw {
   let value = rand(2, 9);
   let text = String(value);
   for (let i = 1; i < operandCount; i++) {
-    type C = { op: "+" | "-"; operand: number; next: number };
+    type C = { op: "+" | "−"; n: number; next: number };
     const cs: C[] = [];
-    for (const op of ["+", "-"] as const) {
-      for (let n = 1; n <= 9; n++) {
-        const next = op === "+" ? value + n : value - n;
-        if (next >= 0 && next <= 9) cs.push({ op, operand: n, next });
-      }
+    for (let n = 1; n <= 9; n++) {
+      const upPlus = value + n;
+      if (upPlus <= 99) cs.push({ op: "+", n, next: upPlus });
+      const upMinus = value - n;
+      if (upMinus >= 0) cs.push({ op: "−", n, next: upMinus });
     }
-    if (cs.length === 0) {
-      value = Math.max(0, value - 1);
-      text += "-1";
-    } else {
-      const c = cs[rand(0, cs.length - 1)];
-      value = c.next;
-      text += `${c.op}${c.operand}`;
-    }
+    const c = cs[rand(0, cs.length - 1)];
+    value = c.next;
+    text += ` ${c.op} ${c.n}`;
   }
-  return { id, text: `${text}=`, answer: value };
+  return { text, answer: value, op: "+" };
 }
 
-// Score-driven ramp; every tier still resolves to a single digit.
+// Score-driven ramp.
 //
-//   0..2   warm-up                       (single-digit add/sub, small)
-//   3..5   easy                          (full single-digit add/sub)
-//   6..9   + small ×                     (multiplication that fits in 0..9)
-//   10..14 + 2-digit operand subtraction (e.g. 23 - 17 = 6)
-//   15..21 3-term + / - chains (clamped) (3+5-2 = 6)
-//   22+    4-term + / - chains (clamped) (7+5-9+1 = 4)
+//   0..2   warm-up                  (a+b ≤ 9, single-digit)
+//   3..7   easy add/sub             (results up to ~18)
+//   8..12  + multiplication tables  (full 2x..9x, results up to 81)
+//   13..17 + 2-digit add/sub        (operands 10..90, result 0..99)
+//   18..23 3-term + / − chain
+//   24+    4-term + / − chain
 export function makeEquation(id: number): Equation {
-  if (id < 3) return makeWarmup(id);
-  if (id < 6) return makeEasyAddSub(id);
-  if (id < 10) return makeBasicMixed(id);
-  if (id < 15) return makeHarderSingle(id);
-  if (id < 22) return makeChain(3, id);
-  return makeChain(4, id);
+  let raw: Raw;
+  if (id < 3) raw = warmup();
+  else if (id < 8) raw = easyAddSub();
+  else if (id < 13) raw = Math.random() < 0.6 ? basicMul() : easyAddSub();
+  else if (id < 18) raw = Math.random() < 0.5 ? fullMul() : biggerAddSub();
+  else if (id < 24) raw = Math.random() < 0.7 ? chain(3) : biggerAddSub();
+  else raw = chain(4);
+
+  return {
+    id,
+    text: `${raw.text} = ?`,
+    answer: raw.answer,
+    choices: makeChoices(raw.answer, raw.op),
+  };
 }
 
 export function makeEquations(count: number): Equation[] {

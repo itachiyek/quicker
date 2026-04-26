@@ -1,22 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import DrawCanvas, { type DrawCanvasHandle } from "./DrawCanvas";
-import MathPanel from "./MathPanel";
 import { makeEquations, type Equation } from "@/lib/equations";
-import { loadModel, recognizeAll } from "@/lib/recognizer";
-import { playCorrect, playWrong } from "@/lib/sounds";
-import type * as tf from "@tensorflow/tfjs";
+import { playCorrect, playWrong, playStart, unlockAudio } from "@/lib/sounds";
 
 const ROUND_DURATION = 60; // seconds
-const VISIBLE_ROWS = 3;
-const POOL_SIZE = 120;
-// Single-digit problems get fast feedback; two-digit answers need a slightly
-// longer pause so the second digit isn't started after we've already fired.
-const RECOGNIZE_DELAY_MS_1 = 280;
-const RECOGNIZE_DELAY_MS_2 = 750;
+const POINTS_PER_CORRECT = 10;
+const POOL_SIZE = 200;
+const ADVANCE_DELAY_CORRECT = 250;
+const ADVANCE_DELAY_WRONG = 600;
 
-type Feedback = { kind: "correct" | "wrong"; value: string } | null;
+type Pick = {
+  index: number;
+  correct: boolean;
+};
 
 export default function GameScreen({
   onFinish,
@@ -25,42 +22,38 @@ export default function GameScreen({
 }) {
   const [equations] = useState<Equation[]>(() => makeEquations(POOL_SIZE));
   const [index, setIndex] = useState(0);
-  const [score, setScore] = useState(0);
+  const [points, setPoints] = useState(0);
+  const [solved, setSolved] = useState(0);
+  const [streak, setStreak] = useState(0);
   const [timeLeft, setTimeLeft] = useState(ROUND_DURATION);
-  const [feedback, setFeedback] = useState<Feedback>(null);
-  const [model, setModel] = useState<tf.LayersModel | null>(null);
+  const [pick, setPick] = useState<Pick | null>(null);
 
-  const canvasRef = useRef<DrawCanvasHandle | null>(null);
-  const recognizeTimer = useRef<number | null>(null);
-  const feedbackTimer = useRef<number | null>(null);
   const finishedRef = useRef(false);
   const indexRef = useRef(0);
-  const scoreRef = useRef(0);
-  const expectedAnswerRef = useRef<number>(equations[0].answer);
+  const pointsRef = useRef(0);
+  const solvedRef = useRef(0);
+  const lockRef = useRef(false);
 
   useEffect(() => {
     indexRef.current = index;
-    expectedAnswerRef.current = equations[index].answer;
-    setFeedback(null);
-  }, [index, equations]);
-
+  }, [index]);
   useEffect(() => {
-    scoreRef.current = score;
-  }, [score]);
-
+    pointsRef.current = points;
+  }, [points]);
   useEffect(() => {
-    loadModel().then(setModel).catch(() => {});
-  }, []);
+    solvedRef.current = solved;
+  }, [solved]);
 
   // Timer
   useEffect(() => {
+    playStart();
     const id = window.setInterval(() => {
       setTimeLeft((t) => {
         if (t <= 1) {
           window.clearInterval(id);
           if (!finishedRef.current) {
             finishedRef.current = true;
-            onFinish(scoreRef.current, indexRef.current, ROUND_DURATION);
+            onFinish(pointsRef.current, solvedRef.current, ROUND_DURATION);
           }
           return 0;
         }
@@ -70,121 +63,125 @@ export default function GameScreen({
     return () => window.clearInterval(id);
   }, [onFinish]);
 
-  const visibleRows = useMemo(() => {
-    const rows: { eq: Equation; status: "pending" | "current" | "correct" }[] = [];
-    for (let i = 0; i < VISIBLE_ROWS; i++) {
-      const idx = index + i;
-      if (idx >= equations.length) break;
-      rows.push({
-        eq: equations[idx],
-        status: i === 0 ? "current" : "pending",
-      });
-    }
-    return rows;
-  }, [index, equations]);
+  const eq = equations[index];
 
   const advance = useCallback(() => {
-    setScore((s) => s + 1);
+    setPick(null);
     setIndex((i) => Math.min(i + 1, equations.length - 1));
-    canvasRef.current?.clear();
+    lockRef.current = false;
   }, [equations.length]);
 
-  const tryRecognize = useCallback(async () => {
-    if (!model) return;
-    const canvas = canvasRef.current?.getCanvas();
-    if (!canvas) return;
-    if (canvasRef.current?.isEmpty()) return;
-    const result = await recognizeAll(model, canvas);
-    if (!result || result.digits.length === 0) return;
-
-    const expected = expectedAnswerRef.current;
-    const expectedStr = String(expected);
-    const drawnStr = result.digits.join("");
-
-    // For 2-digit answers, also accept a partial single-digit match where the
-    // user hasn't drawn the second digit yet — but only if the partial digit
-    // matches the FIRST digit of the answer. Otherwise we treat it as wrong.
-    // We never accept a 1-digit drawing as the answer to a 2-digit equation.
-
-    if (drawnStr === expectedStr) {
-      setFeedback({ kind: "correct", value: drawnStr });
-      playCorrect();
-      window.setTimeout(advance, 180);
-      return;
-    }
-
-    // For 2-digit expected with 1 drawn digit matching the leading digit, do
-    // nothing — they're mid-answer. We just wait for the next stroke.
-    if (
-      expectedStr.length === 2 &&
-      drawnStr.length === 1 &&
-      drawnStr === expectedStr[0]
-    ) {
-      return;
-    }
-
-    // Wrong: clear the canvas immediately so any new stroke isn't lost to a
-    // delayed clear, and show what we read briefly in the math panel.
-    canvasRef.current?.clear();
-    setFeedback({ kind: "wrong", value: drawnStr });
-    playWrong();
-    if (feedbackTimer.current) window.clearTimeout(feedbackTimer.current);
-    feedbackTimer.current = window.setTimeout(() => setFeedback(null), 600);
-  }, [model, advance]);
-
-  const onStrokeEnd = useCallback(() => {
-    if (recognizeTimer.current) window.clearTimeout(recognizeTimer.current);
-    const delay =
-      String(expectedAnswerRef.current).length >= 2
-        ? RECOGNIZE_DELAY_MS_2
-        : RECOGNIZE_DELAY_MS_1;
-    recognizeTimer.current = window.setTimeout(() => {
-      tryRecognize();
-    }, delay);
-  }, [tryRecognize]);
-
-  const timePct = Math.max(
-    0,
-    Math.min(100, (timeLeft / ROUND_DURATION) * 100),
+  const onChoose = useCallback(
+    (choiceIdx: number) => {
+      if (lockRef.current || finishedRef.current) return;
+      lockRef.current = true;
+      unlockAudio();
+      const correct = eq.choices[choiceIdx] === eq.answer;
+      setPick({ index: choiceIdx, correct });
+      if (correct) {
+        playCorrect();
+        setPoints((p) => p + POINTS_PER_CORRECT);
+        setSolved((s) => s + 1);
+        setStreak((s) => s + 1);
+        window.setTimeout(advance, ADVANCE_DELAY_CORRECT);
+      } else {
+        playWrong();
+        setStreak(0);
+        window.setTimeout(advance, ADVANCE_DELAY_WRONG);
+      }
+    },
+    [eq, advance],
   );
 
+  const timePct = useMemo(
+    () => Math.max(0, Math.min(100, (timeLeft / ROUND_DURATION) * 100)),
+    [timeLeft],
+  );
+
+  const mm = String(Math.floor(timeLeft / 60)).padStart(2, "0");
+  const ss = String(timeLeft % 60).padStart(2, "0");
+
   return (
-    <div className="flex-1 flex flex-col p-3 sm:p-4 gap-3 max-w-md w-full mx-auto">
+    <div className="flex-1 flex flex-col p-4 max-w-md w-full mx-auto gap-4">
       {/* HUD */}
-      <div className="flex items-center gap-3">
-        <div className="panel px-3 py-1.5 flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-wider text-stone-500">
-            Score
-          </span>
-          <span className="tabular-nums font-bold text-lg">{score}</span>
-        </div>
-        <div className="flex-1 panel px-3 py-1.5 flex items-center gap-2">
-          <div className="flex-1 h-1.5 bg-stone-200 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-[width] duration-700 ease-linear ${
-                timeLeft <= 10 ? "bg-rose-500" : "bg-stone-700"
-              }`}
-              style={{ width: `${timePct}%` }}
-            />
-          </div>
-          <span
-            className={`tabular-nums font-bold text-sm ${
-              timeLeft <= 10 ? "text-rose-600" : "text-stone-700"
-            }`}
-          >
-            {timeLeft}s
-          </span>
-        </div>
+      <header className="grid grid-cols-3 gap-3 text-center">
+        <Stat label="Time" value={`${mm}:${ss}`} />
+        <Stat label="Score" value={String(points)} />
+        <Stat
+          label="Streak"
+          value={
+            <>
+              {streak}
+              {streak >= 3 && <span className="ml-0.5">🔥</span>}
+            </>
+          }
+        />
+      </header>
+
+      {/* time bar */}
+      <div className="h-1 bg-stone-200 rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-[width] duration-700 ease-linear ${
+            timeLeft <= 10 ? "bg-rose-500" : "bg-stone-800"
+          }`}
+          style={{ width: `${timePct}%` }}
+        />
       </div>
 
-      {/* Top screen: equations */}
-      <div className="flex-1 min-h-0">
-        <MathPanel rows={visibleRows} feedback={feedback} />
-      </div>
+      {/* Question */}
+      <section className="card-glass flex-1 flex items-center justify-center px-4 py-8">
+        <div className="font-serif font-bold text-5xl sm:text-6xl tracking-tight tabular-nums text-center">
+          {eq.text}
+        </div>
+      </section>
 
-      {/* Bottom screen: drawing */}
-      <div className="aspect-square">
-        <DrawCanvas ref={canvasRef} onStrokeEnd={onStrokeEnd} />
+      {/* Answers */}
+      <section className="grid grid-cols-2 gap-3">
+        {eq.choices.map((c, i) => {
+          const picked = pick?.index === i;
+          const showCorrect = pick && c === eq.answer;
+          let stateClass = "";
+          if (picked && pick.correct) {
+            stateClass = "bg-emerald-500 text-white border-emerald-600";
+          } else if (picked && !pick.correct) {
+            stateClass = "bg-rose-500 text-white border-rose-600 animate-pulse";
+          } else if (showCorrect && pick && !pick.correct) {
+            // also reveal correct answer when user got it wrong
+            stateClass = "bg-emerald-50 text-emerald-800 border-emerald-300";
+          } else {
+            stateClass =
+              "bg-white text-stone-900 border-stone-300 active:scale-[0.98]";
+          }
+          return (
+            <button
+              key={i}
+              onClick={() => onChoose(i)}
+              disabled={!!pick}
+              className={`h-20 sm:h-24 rounded-2xl border text-3xl font-serif font-bold tabular-nums shadow-sm transition-all ${stateClass}`}
+            >
+              {c}
+            </button>
+          );
+        })}
+      </section>
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-[0.18em] text-stone-500">
+        {label}
+      </div>
+      <div className="text-lg sm:text-xl font-serif font-bold tabular-nums">
+        {value}
       </div>
     </div>
   );
