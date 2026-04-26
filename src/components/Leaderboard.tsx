@@ -52,40 +52,38 @@ export default function Leaderboard({
     );
   }
 
-  if (entries.length === 0) {
-    return (
-      <div className="panel text-sm text-stone-500 text-center p-5">
-        No scores yet. Be the first.
-      </div>
-    );
-  }
+  // Always render exactly 10 rows so the layout is stable and the structure
+  // matches the contest view.
+  const slots: (Entry | null)[] = Array.from({ length: 10 }, (_, i) =>
+    entries[i] ?? null,
+  );
 
   return (
     <ol className="panel divide-y divide-stone-200 overflow-hidden">
-      {entries.map((e, i) => {
+      {slots.map((e, i) => {
         const rank = i + 1;
         const me =
+          e &&
           highlightWallet &&
           e.wallet.toLowerCase() === highlightWallet.toLowerCase();
-        const short = `${e.wallet.slice(0, 6)}…${e.wallet.slice(-4)}`;
+        const short = e
+          ? `${e.wallet.slice(0, 6)}…${e.wallet.slice(-4)}`
+          : "—";
         return (
           <li
-            key={e.wallet}
+            key={i}
             className={`flex items-center gap-3 px-3 py-2.5 ${
               me ? "bg-amber-50" : ""
-            }`}
+            } ${!e ? "opacity-50" : ""}`}
           >
             <span className="w-7 text-center tabular-nums text-stone-500 font-medium">
               {MEDAL[rank] ?? rank}
             </span>
             <span className="flex-1 truncate font-mono text-sm text-stone-800">
-              {e.display_name ?? short}
+              {e ? (e.display_name ?? short) : "—"}
             </span>
-            <span className="text-[10px] uppercase tracking-wider text-stone-400 mr-1">
-              {e.games_played}g
-            </span>
-            <span className="tabular-nums font-bold text-lg text-stone-900">
-              {e.best_score}
+            <span className="tabular-nums font-bold text-lg text-stone-900 w-12 text-right">
+              {e ? e.best_score : "·"}
             </span>
           </li>
         );
