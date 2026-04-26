@@ -84,7 +84,7 @@ export default function EndScreen({
           {score}
         </div>
         <div className="text-stone-600 text-sm mt-2">
-          {score} of {total} solved · {durationSeconds}s
+          {score} solved · {durationSeconds}s
         </div>
         <div className="text-stone-500 text-xs mt-1 italic">{subtitle}</div>
 

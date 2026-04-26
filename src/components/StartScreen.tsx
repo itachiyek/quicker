@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { loadModel } from "@/lib/recognizer";
 import { playStart, unlockAudio } from "@/lib/sounds";
+import Link from "next/link";
 import WalletBar from "./WalletBar";
 import Leaderboard from "./Leaderboard";
-import Logo from "./Logo";
 import BuyRoundButton from "./BuyRoundButton";
 import Payments from "./Payments";
 import { useSession } from "@/hooks/useSession";
@@ -111,11 +111,8 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
   return (
     <div className="flex-1 flex flex-col items-center max-w-md w-full mx-auto px-4 pt-5 pb-10 gap-4">
       <header className="w-full flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <Logo size={32} />
-          <div className="text-base font-serif italic font-extrabold tracking-tight">
-            Quicker
-          </div>
+        <div className="text-xl font-serif italic font-extrabold tracking-tight">
+          Quicker
         </div>
         <WalletBar compact />
       </header>
@@ -193,6 +190,28 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
           </div>
         )}
       </section>
+
+      {/* Weekly contest CTA */}
+      <Link
+        href="/contest"
+        className="card-glass w-full p-4 flex items-center gap-3 hover:bg-white/80 transition-colors"
+      >
+        <span className="w-10 h-10 rounded-xl bg-stone-900 text-amber-200 flex items-center justify-center text-lg">
+          🏆
+        </span>
+        <div className="flex-1">
+          <div className="text-[10px] uppercase tracking-wider text-stone-500">
+            Weekly Contest
+          </div>
+          <div className="text-sm font-semibold">
+            Top 10 split{" "}
+            <span className="font-serif italic font-extrabold">200 WLD</span>
+          </div>
+        </div>
+        <span className="text-stone-400 text-lg" aria-hidden>
+          →
+        </span>
+      </Link>
 
       <Payments enabled={!!wallet} />
 
