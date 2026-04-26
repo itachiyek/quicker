@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { loadModel } from "@/lib/recognizer";
 import { playStart, unlockAudio } from "@/lib/sounds";
 import WalletBar from "./WalletBar";
@@ -11,7 +11,7 @@ import Payments from "./Payments";
 import { useSession } from "@/hooks/useSession";
 import { usePlayStatus } from "@/hooks/usePlayStatus";
 
-type PersonalStats = {
+type Stats = {
   best_score: number;
   games_played: number;
   rank: number | null;
@@ -23,13 +23,10 @@ type Entry = {
   games_played: number;
 };
 
-function useStats(wallet: string | null): PersonalStats | null {
-  const [stats, setStats] = useState<PersonalStats | null>(null);
+function useStats(wallet: string | null): Stats | null {
+  const [stats, setStats] = useState<Stats | null>(null);
   useEffect(() => {
-    if (!wallet) {
-      setStats(null);
-      return;
-    }
+    if (!wallet) return;
     let cancelled = false;
     fetch("/api/leaderboard", { cache: "no-store" })
       .then((r) => r.json())
@@ -61,17 +58,13 @@ function useStats(wallet: string | null): PersonalStats | null {
 export default function StartScreen({ onStart }: { onStart: () => void }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [msg, setMsg] = useState("");
   const [startError, setStartError] = useState<string | null>(null);
   const { wallet } = useSession();
   const stats = useStats(wallet);
   const { status, refresh: refreshStatus } = usePlayStatus(!!wallet);
 
   useEffect(() => {
-    loadModel((m, p) => {
-      setMsg(m);
-      if (typeof p === "number") setProgress(p);
-    }).catch(() => {});
+    loadModel((_m, p) => typeof p === "number" && setProgress(p)).catch(() => {});
   }, []);
 
   const handleStart = async () => {
@@ -80,18 +73,14 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
     unlockAudio();
     setLoading(true);
     try {
-      // Server-side gate: consume one play (free or paid). Refuses if neither.
       const res = await fetch("/api/play/start", { method: "POST" });
       if (!res.ok) {
         const data = (await res.json()) as { error?: string };
-        setStartError(data.error ?? "Unable to start a round");
+        setStartError(data.error ?? "Unable to start");
         await refreshStatus();
         return;
       }
-      await loadModel((m, p) => {
-        setMsg(m);
-        if (typeof p === "number") setProgress(p);
-      });
+      await loadModel((_m, p) => typeof p === "number" && setProgress(p));
       playStart();
       onStart();
     } catch (e) {
@@ -101,62 +90,39 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
     }
   };
 
-  const greeting = useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 5) return "Late night session";
-    if (hour < 12) return "Good morning";
-    if (hour < 18) return "Good afternoon";
-    return "Good evening";
-  }, []);
-
-  const remainingLabel = (() => {
-    if (!status) return null;
-    if (status.paidCredits > 0) {
-      return `${status.paidCredits} purchased ${
-        status.paidCredits === 1 ? "round" : "rounds"
-      } + ${status.freeRemaining}/${status.freeCap} free`;
-    }
-    return `${status.freeRemaining} of ${status.freeCap} free rounds left`;
-  })();
-
-  const cooldownLabel = (() => {
+  const cooldown = (() => {
     if (!status?.nextFreeAt) return null;
     const ms = new Date(status.nextFreeAt).getTime() - Date.now();
     if (ms <= 0) return null;
     const h = Math.floor(ms / 3_600_000);
     const m = Math.floor((ms % 3_600_000) / 60_000);
-    return `Next free round in ${h}h ${m}m`;
+    return `${h}h ${m}m`;
+  })();
+
+  const remainingChip = (() => {
+    if (!status) return null;
+    const free = `${status.freeRemaining}/${status.freeCap} free`;
+    if (status.paidCredits > 0) {
+      return `${status.paidCredits} paid · ${free}`;
+    }
+    return free;
   })();
 
   return (
-    <div className="flex-1 flex flex-col items-center max-w-md w-full mx-auto px-4 pt-6 pb-12 gap-5">
-      {/* Top bar */}
-      <header className="w-full flex items-center justify-between gap-3">
+    <div className="flex-1 flex flex-col items-center max-w-md w-full mx-auto px-4 pt-5 pb-10 gap-4">
+      <header className="w-full flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <Logo size={36} />
-          <div className="leading-tight">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
-              Brain
-            </div>
-            <div className="text-base font-serif font-bold tracking-tight">
-              Trainer
-            </div>
+          <Logo size={32} />
+          <div className="text-base font-serif font-bold tracking-tight">
+            Brain Trainer
           </div>
         </div>
         <WalletBar compact />
       </header>
 
-      {/* Hero greeting */}
-      <section className="w-full">
-        <div className="text-xs text-stone-500 mb-1">{greeting}</div>
-        <h1 className="text-3xl sm:text-4xl font-serif font-bold leading-tight tracking-tight gradient-text">
-          Sharpen your mind in 60 seconds.
-        </h1>
-      </section>
-
       {/* Stats card */}
       {wallet && stats && (
-        <section className="card-glass w-full p-4 grid grid-cols-3 gap-2 text-center">
+        <section className="card-glass w-full p-4 grid grid-cols-3 divide-x divide-stone-200/80 text-center">
           <div>
             <div className="text-[10px] uppercase tracking-wider text-stone-500">
               Best
@@ -165,7 +131,7 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
               {stats.best_score}
             </div>
           </div>
-          <div className="border-x border-stone-200/80">
+          <div>
             <div className="text-[10px] uppercase tracking-wider text-stone-500">
               Games
             </div>
@@ -186,26 +152,14 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
 
       {/* Play card */}
       <section className="card-glass w-full p-5">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span className="chip">Daily Drill</span>
-            <span className="chip">+ − ×</span>
-          </div>
-          <span className="text-xs text-stone-500 tabular-nums">60s</span>
+        <div className="flex items-center justify-between mb-4">
+          <span className="chip">60s drill</span>
+          {remainingChip && (
+            <span className="text-xs text-stone-600 tabular-nums">
+              {remainingChip}
+            </span>
+          )}
         </div>
-        <p className="text-stone-700 text-sm leading-relaxed mb-4">
-          Solve as many problems as you can in one minute. Draw your answer
-          below — single or two-digit, the classifier reads it as you write.
-        </p>
-
-        {remainingLabel && (
-          <div className="flex items-center justify-between gap-2 mb-4 text-xs">
-            <span className="chip">{remainingLabel}</span>
-            {cooldownLabel && (
-              <span className="text-stone-500">{cooldownLabel}</span>
-            )}
-          </div>
-        )}
 
         {status?.canPlay !== false ? (
           <button
@@ -213,55 +167,40 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
             disabled={loading || !wallet}
             className="btn-primary w-full text-base"
           >
-            {loading ? "Loading…" : "Start Game"}
-            {!loading && (
-              <span aria-hidden className="-mr-1 opacity-80">
-                →
-              </span>
-            )}
+            {loading ? "Loading…" : "Start"}
+            {!loading && <span aria-hidden className="opacity-70">→</span>}
           </button>
         ) : status ? (
-          <BuyRoundButton
-            status={status}
-            onPurchased={() => {
-              refreshStatus();
-            }}
-          />
+          <BuyRoundButton status={status} onPurchased={refreshStatus} />
         ) : (
-          <div className="text-sm text-stone-500 text-center py-2">
-            Loading…
-          </div>
+          <div className="text-sm text-stone-500 text-center py-3">…</div>
         )}
 
-        {startError && (
-          <p className="mt-3 text-xs text-rose-700 text-center">
-            {startError}
+        {cooldown && (
+          <p className="mt-3 text-[11px] text-stone-500 text-center">
+            Next free in {cooldown}
           </p>
         )}
-
-        {(loading || (progress > 0 && progress < 1)) && (
-          <div className="mt-4">
-            <div className="h-1.5 bg-stone-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-emerald-500 transition-all duration-300"
-                style={{ width: `${Math.round(progress * 100)}%` }}
-              />
-            </div>
-            <p className="mt-2 text-xs text-stone-500 text-center">{msg}</p>
+        {startError && (
+          <p className="mt-3 text-xs text-rose-700 text-center">{startError}</p>
+        )}
+        {progress > 0 && progress < 1 && (
+          <div className="mt-3 h-1 bg-stone-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-emerald-500 transition-all duration-300"
+              style={{ width: `${Math.round(progress * 100)}%` }}
+            />
           </div>
         )}
       </section>
 
-      {/* Payments (only renders if there are any) */}
       <Payments enabled={!!wallet} />
 
-      {/* Leaderboard */}
       <section className="w-full">
-        <div className="flex items-baseline justify-between px-1 mb-2">
-          <h3 className="text-sm font-semibold text-stone-700 uppercase tracking-wider">
+        <div className="flex items-baseline justify-between px-1 mb-1.5">
+          <h3 className="text-xs font-semibold text-stone-700 uppercase tracking-wider">
             Leaderboard
           </h3>
-          <span className="text-xs text-stone-500">Top 100</span>
         </div>
         <Leaderboard highlightWallet={wallet} />
       </section>
