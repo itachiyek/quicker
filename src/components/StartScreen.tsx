@@ -6,7 +6,9 @@ import { playStart, unlockAudio } from "@/lib/sounds";
 import WalletBar from "./WalletBar";
 import Leaderboard from "./Leaderboard";
 import Logo from "./Logo";
+import BuyRoundButton from "./BuyRoundButton";
 import { useSession } from "@/hooks/useSession";
+import { usePlayStatus } from "@/hooks/usePlayStatus";
 
 type PersonalStats = {
   best_score: number;
@@ -59,8 +61,10 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [msg, setMsg] = useState("");
+  const [startError, setStartError] = useState<string | null>(null);
   const { wallet } = useSession();
   const stats = useStats(wallet);
+  const { status, refresh: refreshStatus } = usePlayStatus(!!wallet);
 
   useEffect(() => {
     loadModel((m, p) => {
@@ -70,17 +74,28 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
   }, []);
 
   const handleStart = async () => {
+    if (!wallet) return;
+    setStartError(null);
     unlockAudio();
     setLoading(true);
     try {
+      // Server-side gate: consume one play (free or paid). Refuses if neither.
+      const res = await fetch("/api/play/start", { method: "POST" });
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string };
+        setStartError(data.error ?? "Unable to start a round");
+        await refreshStatus();
+        return;
+      }
       await loadModel((m, p) => {
         setMsg(m);
         if (typeof p === "number") setProgress(p);
       });
       playStart();
       onStart();
-    } catch {
-      setMsg("Failed to load model. Reload.");
+    } catch (e) {
+      setStartError(e instanceof Error ? e.message : "Unable to start");
+    } finally {
       setLoading(false);
     }
   };
@@ -92,6 +107,25 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
     if (hour < 18) return "Good afternoon";
     return "Good evening";
   }, []);
+
+  const remainingLabel = (() => {
+    if (!status) return null;
+    if (status.paidCredits > 0) {
+      return `${status.paidCredits} purchased ${
+        status.paidCredits === 1 ? "round" : "rounds"
+      } + ${status.freeRemaining}/${status.freeCap} free`;
+    }
+    return `${status.freeRemaining} of ${status.freeCap} free rounds left`;
+  })();
+
+  const cooldownLabel = (() => {
+    if (!status?.nextFreeAt) return null;
+    const ms = new Date(status.nextFreeAt).getTime() - Date.now();
+    if (ms <= 0) return null;
+    const h = Math.floor(ms / 3_600_000);
+    const m = Math.floor((ms % 3_600_000) / 60_000);
+    return `Next free round in ${h}h ${m}m`;
+  })();
 
   return (
     <div className="flex-1 flex flex-col items-center max-w-md w-full mx-auto px-4 pt-6 pb-12 gap-5">
@@ -158,23 +192,51 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
           </div>
           <span className="text-xs text-stone-500 tabular-nums">60s</span>
         </div>
-        <p className="text-stone-700 text-sm leading-relaxed mb-5">
+        <p className="text-stone-700 text-sm leading-relaxed mb-4">
           Solve as many problems as you can in one minute. Draw your answer
           below — single or two-digit, the classifier reads it as you write.
         </p>
 
-        <button
-          onClick={handleStart}
-          disabled={loading || !wallet}
-          className="btn-primary w-full text-base"
-        >
-          {loading ? "Loading…" : "Start Game"}
-          {!loading && (
-            <span aria-hidden className="-mr-1 opacity-80">
-              →
-            </span>
-          )}
-        </button>
+        {remainingLabel && (
+          <div className="flex items-center justify-between gap-2 mb-4 text-xs">
+            <span className="chip">{remainingLabel}</span>
+            {cooldownLabel && (
+              <span className="text-stone-500">{cooldownLabel}</span>
+            )}
+          </div>
+        )}
+
+        {status?.canPlay !== false ? (
+          <button
+            onClick={handleStart}
+            disabled={loading || !wallet}
+            className="btn-primary w-full text-base"
+          >
+            {loading ? "Loading…" : "Start Game"}
+            {!loading && (
+              <span aria-hidden className="-mr-1 opacity-80">
+                →
+              </span>
+            )}
+          </button>
+        ) : status ? (
+          <BuyRoundButton
+            status={status}
+            onPurchased={() => {
+              refreshStatus();
+            }}
+          />
+        ) : (
+          <div className="text-sm text-stone-500 text-center py-2">
+            Loading…
+          </div>
+        )}
+
+        {startError && (
+          <p className="mt-3 text-xs text-rose-700 text-center">
+            {startError}
+          </p>
+        )}
 
         {(loading || (progress > 0 && progress < 1)) && (
           <div className="mt-4">
@@ -199,7 +261,6 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
         </div>
         <Leaderboard highlightWallet={wallet} />
       </section>
-
     </div>
   );
 }
