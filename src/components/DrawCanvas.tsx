@@ -18,10 +18,13 @@ export type DrawCanvasHandle = {
 type Props = {
   onStrokeEnd?: () => void;
   disabled?: boolean;
+  /** When true, draw a vertical guide down the middle so the user knows
+   *  to write the tens digit on the left and the ones on the right. */
+  divider?: boolean;
 };
 
 const DrawCanvas = forwardRef<DrawCanvasHandle, Props>(function DrawCanvas(
-  { onStrokeEnd, disabled = false },
+  { onStrokeEnd, disabled = false, divider = false },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -138,6 +141,16 @@ const DrawCanvas = forwardRef<DrawCanvasHandle, Props>(function DrawCanvas(
         onPointerCancel={onPointerUp}
         className="block w-full h-full touch-none"
       />
+      {divider && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute top-4 bottom-4 left-1/2 w-px"
+          style={{
+            background:
+              "repeating-linear-gradient(180deg, rgba(120,113,108,0.55) 0 6px, transparent 6px 12px)",
+          }}
+        />
+      )}
       <button
         type="button"
         onClick={(e) => {

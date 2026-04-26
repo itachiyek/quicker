@@ -1,19 +1,31 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import DrawCanvas, { type DrawCanvasHandle } from "./DrawCanvas";
 import { makeEquations, type Equation } from "@/lib/equations";
+import {
+  loadModel,
+  recognizeOne,
+  recognizeHalves,
+  inkPresence,
+} from "@/lib/recognizer";
 import { playCorrect, playWrong, playStart, unlockAudio } from "@/lib/sounds";
+import type * as tf from "@tensorflow/tfjs";
 
 const ROUND_DURATION = 60; // seconds
-const POINTS_PER_CORRECT = 1;
 const POOL_SIZE = 200;
-const ADVANCE_DELAY_CORRECT = 250;
-const ADVANCE_DELAY_WRONG = 600;
 
-type Pick = {
-  index: number;
-  correct: boolean;
-};
+// How long we wait after the last stroke before recognizing.
+const RECOGNIZE_DELAY_MS_1 = 300; // 1-digit answers
+const RECOGNIZE_DELAY_MS_2 = 600; // 2-digit answers
+
+type Feedback = { kind: "correct" | "wrong"; value: string } | null;
 
 export default function GameScreen({
   onFinish,
@@ -27,34 +39,43 @@ export default function GameScreen({
 }) {
   const [equations] = useState<Equation[]>(() => makeEquations(POOL_SIZE));
   const [index, setIndex] = useState(0);
-  const [points, setPoints] = useState(0);
-  const [solved, setSolved] = useState(0);
+  const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
-  const [streakAnim, setStreakAnim] = useState<{ key: number; delta: number } | null>(null);
+  const [streakAnim, setStreakAnim] = useState<{ key: number } | null>(null);
   const [timeLeft, setTimeLeft] = useState(ROUND_DURATION);
-  const [pick, setPick] = useState<Pick | null>(null);
+  const [feedback, setFeedback] = useState<Feedback>(null);
+  const [model, setModel] = useState<tf.LayersModel | null>(null);
 
+  const canvasRef = useRef<DrawCanvasHandle | null>(null);
+  const recognizeTimer = useRef<number | null>(null);
+  const feedbackTimer = useRef<number | null>(null);
   const finishedRef = useRef(false);
   const indexRef = useRef(0);
-  const pointsRef = useRef(0);
-  const solvedRef = useRef(0);
+  const scoreRef = useRef(0);
   const bestStreakRef = useRef(0);
+  const expectedRef = useRef<number>(equations[0].answer);
   const lockRef = useRef(false);
 
   useEffect(() => {
     indexRef.current = index;
-  }, [index]);
+    expectedRef.current = equations[index].answer;
+    setFeedback(null);
+    lockRef.current = false;
+  }, [index, equations]);
+
   useEffect(() => {
-    pointsRef.current = points;
-  }, [points]);
-  useEffect(() => {
-    solvedRef.current = solved;
-  }, [solved]);
+    scoreRef.current = score;
+  }, [score]);
+
   useEffect(() => {
     if (streak > bestStreakRef.current) bestStreakRef.current = streak;
   }, [streak]);
 
-  // Timer
+  useEffect(() => {
+    loadModel().then(setModel).catch(() => {});
+  }, []);
+
+  // Round timer
   useEffect(() => {
     playStart();
     const id = window.setInterval(() => {
@@ -64,8 +85,8 @@ export default function GameScreen({
           if (!finishedRef.current) {
             finishedRef.current = true;
             onFinish({
-              points: pointsRef.current,
-              solved: solvedRef.current,
+              points: scoreRef.current,
+              solved: scoreRef.current,
               bestStreak: bestStreakRef.current,
               durationSeconds: ROUND_DURATION,
             });
@@ -79,50 +100,83 @@ export default function GameScreen({
   }, [onFinish]);
 
   const eq = equations[index];
+  const expectedStr = String(eq.answer);
+  const isTwoDigit = expectedStr.length === 2;
 
   const advance = useCallback(() => {
-    setPick(null);
+    setScore((s) => s + 1);
     setIndex((i) => Math.min(i + 1, equations.length - 1));
-    lockRef.current = false;
+    canvasRef.current?.clear();
   }, [equations.length]);
 
-  const onChoose = useCallback(
-    (choiceIdx: number) => {
-      if (lockRef.current || finishedRef.current) return;
+  const tryRecognize = useCallback(async () => {
+    if (lockRef.current || finishedRef.current) return;
+    if (!model) return;
+    const canvas = canvasRef.current?.getCanvas();
+    if (!canvas) return;
+    if (canvasRef.current?.isEmpty()) return;
+
+    const expected = expectedRef.current;
+    const expectedStr = String(expected);
+
+    let drawn: string;
+    if (expectedStr.length === 2) {
+      // Need both halves filled before judging. If only one side has ink, it
+      // means the user is mid-answer — wait for the next stroke.
+      const presence = inkPresence(canvas);
+      if (!presence.left || !presence.right) return;
+      const result = await recognizeHalves(model, canvas);
+      if (!result) return;
+      drawn = `${result.digits[0]}${result.digits[1]}`;
+    } else {
+      const result = await recognizeOne(model, canvas);
+      if (!result) return;
+      drawn = String(result.digit);
+    }
+
+    if (drawn === expectedStr) {
       lockRef.current = true;
       unlockAudio();
-      const correct = eq.choices[choiceIdx] === eq.answer;
-      setPick({ index: choiceIdx, correct });
-      if (correct) {
-        playCorrect();
-        setPoints((p) => p + POINTS_PER_CORRECT);
-        setSolved((s) => s + 1);
-        setStreak((s) => s + 1);
-        window.setTimeout(advance, ADVANCE_DELAY_CORRECT);
-      } else {
-        playWrong();
-        setStreak((s) => Math.max(0, s - 1));
-        setStreakAnim({ key: Date.now(), delta: -1 });
-        window.setTimeout(advance, ADVANCE_DELAY_WRONG);
-      }
-    },
-    [eq, advance],
-  );
+      playCorrect();
+      setFeedback({ kind: "correct", value: drawn });
+      setStreak((s) => s + 1);
+      window.setTimeout(advance, 220);
+      return;
+    }
+
+    // Wrong
+    unlockAudio();
+    playWrong();
+    canvasRef.current?.clear();
+    setFeedback({ kind: "wrong", value: drawn });
+    setStreak((s) => Math.max(0, s - 1));
+    setStreakAnim({ key: Date.now() });
+    if (feedbackTimer.current) window.clearTimeout(feedbackTimer.current);
+    feedbackTimer.current = window.setTimeout(() => setFeedback(null), 600);
+  }, [model, advance]);
+
+  const onStrokeEnd = useCallback(() => {
+    if (recognizeTimer.current) window.clearTimeout(recognizeTimer.current);
+    const delay =
+      String(expectedRef.current).length === 2
+        ? RECOGNIZE_DELAY_MS_2
+        : RECOGNIZE_DELAY_MS_1;
+    recognizeTimer.current = window.setTimeout(tryRecognize, delay);
+  }, [tryRecognize]);
 
   const timePct = useMemo(
     () => Math.max(0, Math.min(100, (timeLeft / ROUND_DURATION) * 100)),
     [timeLeft],
   );
-
   const mm = String(Math.floor(timeLeft / 60)).padStart(2, "0");
   const ss = String(timeLeft % 60).padStart(2, "0");
 
   return (
-    <div className="flex-1 flex flex-col p-4 max-w-md w-full mx-auto gap-4">
+    <div className="flex-1 flex flex-col p-4 max-w-md w-full mx-auto gap-3">
       {/* HUD */}
       <header className="grid grid-cols-3 gap-3 text-center">
         <Stat label="Time" value={`${mm}:${ss}`} />
-        <Stat label="Score" value={String(points)} />
+        <Stat label="Score" value={String(score)} />
         <Stat
           label="Streak"
           value={
@@ -154,41 +208,42 @@ export default function GameScreen({
       </div>
 
       {/* Question */}
-      <section className="card-glass flex-1 flex items-center justify-center px-4 py-8">
-        <div className="font-serif font-bold text-5xl sm:text-6xl tracking-tight tabular-nums text-center">
-          {eq.text}
+      <section className="card-glass flex items-center justify-center px-4 py-6">
+        <div className="font-serif font-bold text-5xl sm:text-6xl tracking-tight tabular-nums text-center flex items-baseline gap-2">
+          <span>{eq.text}</span>
+          <span className="min-w-[1.5ch] text-left">
+            {feedback ? (
+              <span
+                className={
+                  feedback.kind === "correct"
+                    ? "text-emerald-700"
+                    : "text-rose-600 animate-pulse"
+                }
+              >
+                {feedback.value}
+              </span>
+            ) : (
+              <span className="text-stone-300">·</span>
+            )}
+          </span>
         </div>
       </section>
 
-      {/* Answers */}
-      <section className="grid grid-cols-2 gap-3">
-        {eq.choices.map((c, i) => {
-          const picked = pick?.index === i;
-          const showCorrect = pick && c === eq.answer;
-          let stateClass = "";
-          if (picked && pick.correct) {
-            stateClass = "bg-emerald-500 text-white border-emerald-600";
-          } else if (picked && !pick.correct) {
-            stateClass = "bg-rose-500 text-white border-rose-600 animate-pulse";
-          } else if (showCorrect && pick && !pick.correct) {
-            // also reveal correct answer when user got it wrong
-            stateClass = "bg-emerald-50 text-emerald-800 border-emerald-300";
-          } else {
-            stateClass =
-              "bg-white text-stone-900 border-stone-300 active:scale-[0.98]";
-          }
-          return (
-            <button
-              key={i}
-              onClick={() => onChoose(i)}
-              disabled={!!pick}
-              className={`h-20 sm:h-24 rounded-2xl border text-3xl font-serif font-bold tabular-nums shadow-sm transition-all ${stateClass}`}
-            >
-              {c}
-            </button>
-          );
-        })}
-      </section>
+      {/* Hint */}
+      <p className="text-center text-[11px] text-stone-500">
+        {isTwoDigit
+          ? "Two-digit answer · write tens left, ones right"
+          : "Write your answer"}
+      </p>
+
+      {/* Canvas */}
+      <div className="aspect-square">
+        <DrawCanvas
+          ref={canvasRef}
+          onStrokeEnd={onStrokeEnd}
+          divider={isTwoDigit}
+        />
+      </div>
     </div>
   );
 }

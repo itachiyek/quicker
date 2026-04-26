@@ -217,6 +217,102 @@ function regionToTensor(
   return tf.tidy(() => tf.tensor2d(out, [1, 784]));
 }
 
+// Find the ink bounding box within a horizontal slice of the canvas.
+function ink_bbox_in_slice(
+  canvas: HTMLCanvasElement,
+  xStart: number,
+  xEnd: number,
+): Region | null {
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+  const w = canvas.width;
+  const h = canvas.height;
+  const data = ctx.getImageData(0, 0, w, h).data;
+  let minX = xEnd,
+    minY = h,
+    maxX = xStart - 1,
+    maxY = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = xStart; x < xEnd; x++) {
+      const i = (y * w + x) * 4;
+      const a = data[i + 3] / 255;
+      const r = data[i];
+      const v = a * (1 - r / 255);
+      if (v > 0.1) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX < xStart) return null;
+  return { startX: minX, endX: maxX, minY, maxY };
+}
+
+async function classifyRegion(
+  model: tf.LayersModel,
+  canvas: HTMLCanvasElement,
+  region: Region,
+): Promise<{ digit: number; confidence: number } | null> {
+  const input = regionToTensor(canvas, region);
+  const out = model.predict(input) as tf.Tensor;
+  const data = await out.data();
+  input.dispose();
+  out.dispose();
+  let best = -1;
+  let bestVal = -1;
+  for (let i = 0; i < data.length; i++) {
+    if (data[i] > bestVal) {
+      bestVal = data[i];
+      best = i;
+    }
+  }
+  if (best < 0) return null;
+  return { digit: best, confidence: bestVal };
+}
+
+// Recognize a single digit drawn anywhere on the canvas. Picks the largest
+// ink region.
+export async function recognizeOne(
+  model: tf.LayersModel,
+  canvas: HTMLCanvasElement,
+): Promise<{ digit: number; confidence: number } | null> {
+  const region = ink_bbox_in_slice(canvas, 0, canvas.width);
+  if (!region) return null;
+  return classifyRegion(model, canvas, region);
+}
+
+// Split the canvas into a left half and a right half. Recognize each half
+// independently. Returns null if either half has no ink.
+export async function recognizeHalves(
+  model: tf.LayersModel,
+  canvas: HTMLCanvasElement,
+): Promise<{ digits: [number, number] } | null> {
+  const w = canvas.width;
+  const half = Math.floor(w / 2);
+  const leftRegion = ink_bbox_in_slice(canvas, 0, half);
+  const rightRegion = ink_bbox_in_slice(canvas, half, w);
+  if (!leftRegion || !rightRegion) return null;
+  const [left, right] = await Promise.all([
+    classifyRegion(model, canvas, leftRegion),
+    classifyRegion(model, canvas, rightRegion),
+  ]);
+  if (!left || !right) return null;
+  return { digits: [left.digit, right.digit] };
+}
+
+// Returns true if there is ink on either side of the canvas split.
+export function inkPresence(
+  canvas: HTMLCanvasElement,
+): { left: boolean; right: boolean } {
+  const w = canvas.width;
+  const half = Math.floor(w / 2);
+  return {
+    left: ink_bbox_in_slice(canvas, 0, half) !== null,
+    right: ink_bbox_in_slice(canvas, half, w) !== null,
+  };
+}
+
 // Recognize all digits drawn on the canvas, left-to-right.
 // Returns an empty array if the canvas has no ink.
 export async function recognizeAll(
