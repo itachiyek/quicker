@@ -5,7 +5,7 @@ import { makeEquations, type Equation } from "@/lib/equations";
 import { playCorrect, playWrong, playStart, unlockAudio } from "@/lib/sounds";
 
 const ROUND_DURATION = 60; // seconds
-const POINTS_PER_CORRECT = 10;
+const POINTS_PER_CORRECT = 1;
 const POOL_SIZE = 200;
 const ADVANCE_DELAY_CORRECT = 250;
 const ADVANCE_DELAY_WRONG = 600;
