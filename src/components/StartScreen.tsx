@@ -7,6 +7,7 @@ import WalletBar from "./WalletBar";
 import Leaderboard from "./Leaderboard";
 import Logo from "./Logo";
 import BuyRoundButton from "./BuyRoundButton";
+import Payments from "./Payments";
 import { useSession } from "@/hooks/useSession";
 import { usePlayStatus } from "@/hooks/usePlayStatus";
 
@@ -250,6 +251,9 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
           </div>
         )}
       </section>
+
+      {/* Payments (only renders if there are any) */}
+      <Payments enabled={!!wallet} />
 
       {/* Leaderboard */}
       <section className="w-full">

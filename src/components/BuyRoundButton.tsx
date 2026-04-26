@@ -1,8 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { encodeFunctionData, erc20Abi } from "viem";
 import { MiniKit } from "@worldcoin/minikit-js";
 import type { PlayStatus } from "@/hooks/usePlayStatus";
+
+const WLD_TOKEN_ADDRESS =
+  "0x2cFc85d8E48F8EAB294be644d9E25C3030863003" as const;
+const WORLD_CHAIN_ID = 480;
 
 function isInWorldApp(): boolean {
   if (typeof window === "undefined") return false;
@@ -12,6 +17,37 @@ function isInWorldApp(): boolean {
 
 type Result = { ok: true } | { ok: false; reason: string };
 
+// Poll the World Developer Portal for the user op until it's mined and
+// resolved to a real transaction hash. Returns the tx hash or throws.
+async function resolveUserOp(userOpHash: string): Promise<string> {
+  const start = Date.now();
+  const TIMEOUT_MS = 60_000;
+  while (Date.now() - start < TIMEOUT_MS) {
+    try {
+      const r = await fetch(
+        `https://developer.world.org/api/v2/minikit/userop/${userOpHash}`,
+        { cache: "no-store" },
+      );
+      if (r.ok) {
+        const data = (await r.json()) as {
+          status?: string;
+          transaction_hash?: string;
+        };
+        if (data.status === "success" && data.transaction_hash) {
+          return data.transaction_hash;
+        }
+        if (data.status === "failed") {
+          throw new Error("Transaction failed on chain");
+        }
+      }
+    } catch {
+      // network blip — retry
+    }
+    await new Promise((r) => setTimeout(r, 2500));
+  }
+  throw new Error("Timed out waiting for confirmation");
+}
+
 export default function BuyRoundButton({
   status,
   onPurchased,
@@ -20,6 +56,7 @@ export default function BuyRoundButton({
   onPurchased: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleBuy = async (): Promise<Result> => {
@@ -32,55 +69,74 @@ export default function BuyRoundButton({
       };
     }
 
-    // Generate a fresh reference so World can correlate the request.
-    const reference =
-      "rnd_" +
-      Math.random().toString(36).slice(2, 10) +
-      Date.now().toString(36);
+    // WLD has 18 decimals. Multiply by 1e18 and round up so rounding error
+    // can never put us below the server-required minimum (5% slippage).
+    const wldUnits = BigInt(
+      Math.ceil(status.wldPerRound * 1.005 * 1e18),
+    );
 
     const mk = MiniKit as unknown as {
-      pay: (opts: {
-        reference: string;
-        to: string;
-        tokens: Array<{ symbol: "WLD"; token_amount: string }>;
-        description: string;
+      sendTransaction: (opts: {
+        chainId: number;
+        transactions: Array<{
+          to: `0x${string}`;
+          data: `0x${string}`;
+          value?: `0x${string}`;
+        }>;
       }) => Promise<
         | {
+            executedWith?: "minikit" | "wagmi" | "fallback";
+            data?: {
+              userOpHash?: string;
+              status?: string;
+              transactionHash?: string;
+            };
             finalPayload?: {
               status?: string;
+              error_code?: string;
               transaction_id?: string;
               transaction_hash?: string;
-              error_code?: string;
             };
           }
         | undefined
       >;
     };
 
-    // World expects token_amount in the smallest decimal unit (1e18 for WLD).
-    const wldAmount = BigInt(
-      Math.ceil(status.wldPerRound * 1e18),
-    ).toString();
-
-    const result = await mk.pay({
-      reference,
-      to: status.treasury,
-      tokens: [{ symbol: "WLD", token_amount: wldAmount }],
-      description: "1 round of Brain Trainer",
+    setStage("Confirm in World App");
+    const result = await mk.sendTransaction({
+      chainId: WORLD_CHAIN_ID,
+      transactions: [
+        {
+          to: WLD_TOKEN_ADDRESS,
+          data: encodeFunctionData({
+            abi: erc20Abi,
+            functionName: "transfer",
+            args: [status.treasury as `0x${string}`, wldUnits],
+          }),
+        },
+      ],
     });
 
-    const fp = result?.finalPayload;
-    if (!fp || fp.status !== "success") {
-      return {
-        ok: false,
-        reason: fp?.error_code ?? "Payment cancelled",
-      };
-    }
-    const txHash = fp.transaction_hash;
-    if (!txHash) {
-      return { ok: false, reason: "No transaction hash returned" };
+    const userOpHash =
+      result?.data?.userOpHash ?? result?.finalPayload?.transaction_id;
+    if (!userOpHash) {
+      const code =
+        result?.finalPayload?.error_code ?? "Transaction cancelled";
+      return { ok: false, reason: code };
     }
 
+    setStage("Waiting for confirmation…");
+    let txHash: string;
+    try {
+      txHash = await resolveUserOp(userOpHash);
+    } catch (e) {
+      return {
+        ok: false,
+        reason: e instanceof Error ? e.message : "Confirmation timed out",
+      };
+    }
+
+    setStage("Verifying on-chain…");
     const verifyRes = await fetch("/api/play/buy", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -88,7 +144,7 @@ export default function BuyRoundButton({
     });
     if (!verifyRes.ok) {
       const t = await verifyRes.text();
-      return { ok: false, reason: t.slice(0, 120) };
+      return { ok: false, reason: t.slice(0, 160) };
     }
     return { ok: true };
   };
@@ -96,6 +152,7 @@ export default function BuyRoundButton({
   const onClick = async () => {
     setBusy(true);
     setError(null);
+    setStage(null);
     try {
       const res = await handleBuy();
       if (res.ok) {
@@ -107,6 +164,7 @@ export default function BuyRoundButton({
       setError(e instanceof Error ? e.message : "Purchase failed");
     } finally {
       setBusy(false);
+      setStage(null);
     }
   };
 
@@ -121,7 +179,7 @@ export default function BuyRoundButton({
         className="btn-primary w-full"
       >
         {busy
-          ? "Confirm in World App…"
+          ? (stage ?? "Working…")
           : `Buy 1 round · ${wldText} WLD (≈ $${usdText})`}
       </button>
       {error && (

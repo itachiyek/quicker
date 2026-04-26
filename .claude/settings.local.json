@@ -30,7 +30,11 @@
       "mcp__79e26106-b63f-4698-8031-a8086cb58766__confirm_cost",
       "mcp__79e26106-b63f-4698-8031-a8086cb58766__create_project",
       "Bash(vercel ls *)",
-      "Bash(curl -sI https://quicker-one.vercel.app/icon.svg)"
+      "Bash(curl -sI https://quicker-one.vercel.app/icon.svg)",
+      "Bash(vercel env *)",
+      "Bash(curl -s \"https://api.dexscreener.com/latest/dex/tokens/0x2cFc85d8E48F8EAB294be644d9E25C3030863003\")",
+      "Bash(node -e ' *)",
+      "mcp__79e26106-b63f-4698-8031-a8086cb58766__execute_sql"
     ]
   }
 }
