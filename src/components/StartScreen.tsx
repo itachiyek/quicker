@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { loadModel } from "@/lib/recognizer";
 import { playStart, unlockAudio } from "@/lib/sounds";
-import Link from "next/link";
 import WalletBar from "./WalletBar";
 import Leaderboard from "./Leaderboard";
-import BuyRoundButton from "./BuyRoundButton";
-import Payments from "./Payments";
+import BuyPanel from "./BuyRoundButton";
 import { useSession } from "@/hooks/useSession";
 import { usePlayStatus } from "@/hooks/usePlayStatus";
 
@@ -99,15 +98,6 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
     return `${h}h ${m}m`;
   })();
 
-  const remainingChip = (() => {
-    if (!status) return null;
-    const free = `${status.freeRemaining}/${status.freeCap} free`;
-    if (status.paidCredits > 0) {
-      return `${status.paidCredits} paid · ${free}`;
-    }
-    return free;
-  })();
-
   return (
     <div className="flex-1 flex flex-col items-center max-w-md w-full mx-auto px-4 pt-5 pb-10 gap-4">
       <header className="w-full flex items-center justify-between">
@@ -117,7 +107,6 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
         <WalletBar compact />
       </header>
 
-      {/* Stats card */}
       {wallet && stats && (
         <section className="card-glass w-full p-4 grid grid-cols-3 divide-x divide-stone-200/80 text-center">
           <div>
@@ -148,50 +137,60 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
       )}
 
       {/* Play card */}
-      <section className="card-glass w-full p-5">
-        <div className="flex items-center justify-between mb-4">
+      <section className="card-glass w-full p-5 flex flex-col gap-4">
+        <div className="flex items-center justify-between">
           <span className="chip">60s drill</span>
-          {remainingChip && (
-            <span className="text-xs text-stone-600 tabular-nums">
-              {remainingChip}
-            </span>
+          {status && (
+            <div className="flex items-center gap-2 text-xs tabular-nums">
+              <span className="chip">
+                {status.freeRemaining}/{status.freeCap} free
+              </span>
+              <span
+                className={`chip ${
+                  status.paidCredits > 0
+                    ? "!text-amber-700 !border-amber-300 !bg-amber-50"
+                    : ""
+                }`}
+              >
+                {status.paidCredits} credits
+              </span>
+            </div>
           )}
         </div>
 
-        {status?.canPlay !== false ? (
-          <button
-            onClick={handleStart}
-            disabled={loading || !wallet}
-            className="btn-primary w-full text-base"
-          >
-            {loading ? "Loading…" : "Start"}
-            {!loading && <span aria-hidden className="opacity-70">→</span>}
-          </button>
-        ) : status ? (
-          <BuyRoundButton status={status} onPurchased={refreshStatus} />
-        ) : (
-          <div className="text-sm text-stone-500 text-center py-3">…</div>
-        )}
+        <button
+          onClick={handleStart}
+          disabled={loading || !wallet || status?.canPlay === false}
+          className="btn-primary w-full text-base"
+        >
+          {loading ? "Loading…" : "Start"}
+          {!loading && <span aria-hidden className="opacity-70">→</span>}
+        </button>
 
-        {cooldown && (
-          <p className="mt-3 text-[11px] text-stone-500 text-center">
+        {cooldown && status?.canPlay === false && (
+          <p className="text-[11px] text-stone-500 text-center -mt-2">
             Next free in {cooldown}
           </p>
         )}
         {startError && (
-          <p className="mt-3 text-xs text-rose-700 text-center">{startError}</p>
+          <p className="text-xs text-rose-700 text-center -mt-2">{startError}</p>
         )}
         {progress > 0 && progress < 1 && (
-          <div className="mt-3 h-1 bg-stone-200 rounded-full overflow-hidden">
+          <div className="h-1 bg-stone-200 rounded-full overflow-hidden -mt-2">
             <div
               className="h-full bg-emerald-500 transition-all duration-300"
               style={{ width: `${Math.round(progress * 100)}%` }}
             />
           </div>
         )}
+
+        {status && (
+          <div className="pt-3 border-t border-stone-200/70">
+            <BuyPanel status={status} onPurchased={refreshStatus} />
+          </div>
+        )}
       </section>
 
-      {/* Weekly contest CTA */}
       <Link
         href="/contest"
         className="card-glass w-full p-4 flex items-center gap-3 hover:bg-white/80 transition-colors"
@@ -212,8 +211,6 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
           →
         </span>
       </Link>
-
-      <Payments enabled={!!wallet} />
 
       <section className="w-full">
         <div className="flex items-baseline justify-between px-1 mb-1.5">

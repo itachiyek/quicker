@@ -14,12 +14,13 @@ import {
   WLD_TOKEN_ADDRESS,
   getTreasuryAddress,
   USDC_PER_ROUND,
+  getPackage,
 } from "@/lib/pricing";
 import { getPlayStatus } from "@/lib/plays";
 
-// World Chain mainnet (chainId 480).
 const WORLDCHAIN_RPC =
-  process.env.WORLDCHAIN_RPC_URL ?? "https://worldchain-mainnet.g.alchemy.com/public";
+  process.env.WORLDCHAIN_RPC_URL ??
+  "https://worldchain-mainnet.g.alchemy.com/public";
 
 const transferEvent = parseAbiItem(
   "event Transfer(address indexed from, address indexed to, uint256 value)",
@@ -32,26 +33,24 @@ export async function POST(req: NextRequest) {
   }
   const sb = getSupabaseAdmin();
   if (!sb) {
-    return NextResponse.json(
-      { error: "Backend not configured" },
-      { status: 503 },
-    );
+    return NextResponse.json({ error: "Backend not configured" }, { status: 503 });
   }
   const treasury = getTreasuryAddress();
   if (!treasury) {
-    return NextResponse.json(
-      { error: "Payments not configured" },
-      { status: 503 },
-    );
+    return NextResponse.json({ error: "Payments not configured" }, { status: 503 });
   }
 
-  const body = (await req.json()) as { txHash?: string };
+  const body = (await req.json()) as { txHash?: string; packageId?: number };
   const txHash = body.txHash;
   if (!txHash || !isHash(txHash)) {
     return NextResponse.json({ error: "Bad tx hash" }, { status: 400 });
   }
+  // Default to the legacy single-round package if none specified.
+  const pkg = getPackage(body.packageId ?? 1);
+  if (!pkg) {
+    return NextResponse.json({ error: "Unknown package" }, { status: 400 });
+  }
 
-  // Don't double-credit the same transaction.
   const { data: existing } = await sb
     .from("quicker_payments")
     .select("tx_hash")
@@ -61,12 +60,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Already processed" }, { status: 409 });
   }
 
-  // Look up the receipt + verify a WLD Transfer event from the player to the
-  // treasury for at least the required amount.
-  const client = createPublicClient({
-    transport: http(WORLDCHAIN_RPC),
-  });
-
+  const client = createPublicClient({ transport: http(WORLDCHAIN_RPC) });
   let receipt;
   try {
     receipt = await client.getTransactionReceipt({ hash: txHash });
@@ -77,7 +71,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Tx not successful" }, { status: 400 });
   }
 
-  // Look up cached price to compute the required WLD amount.
   const { data: priceRow } = await sb
     .from("quicker_price_cache")
     .select("price_usdc,updated_at")
@@ -85,27 +78,19 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
   const priceUsdc = priceRow?.price_usdc as number | undefined;
   if (!priceUsdc || priceUsdc <= 0) {
-    return NextResponse.json(
-      { error: "Price unavailable" },
-      { status: 503 },
-    );
+    return NextResponse.json({ error: "Price unavailable" }, { status: 503 });
   }
-  // Allow 5% slippage downward (price moves between buy + verify) but require
-  // at least 95% of the spec.
-  const requiredWld = USDC_PER_ROUND / priceUsdc;
+
+  // Required WLD = package USDC price / WLD-USDC. Allow 5% slippage downward.
+  const requiredWld = pkg.usdcPrice / priceUsdc;
   const minWld = requiredWld * 0.95;
   const minUnits = parseUnits(minWld.toFixed(18), 18);
 
-  // Find the matching Transfer log: WLD token, from=session.wallet, to=treasury.
   let totalIn = 0n;
   for (const log of receipt.logs) {
-    if (
-      log.address.toLowerCase() !== WLD_TOKEN_ADDRESS.toLowerCase()
-    )
-      continue;
+    if (log.address.toLowerCase() !== WLD_TOKEN_ADDRESS.toLowerCase()) continue;
     let parsed;
     try {
-      // viem decodeEventLog needs the abi item.
       const { decodeEventLog } = await import("viem");
       parsed = decodeEventLog({
         abi: [transferEvent],
@@ -138,7 +123,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // All good — record the payment and increment paid_credits.
   const wldPaid = Number(formatUnits(totalIn, 18));
   const usdcValue = Number((wldPaid * priceUsdc).toFixed(4));
 
@@ -153,7 +137,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: payErr.message }, { status: 500 });
   }
 
-  // Make sure player row exists then increment.
   await sb
     .from("quicker_players")
     .upsert(
@@ -161,19 +144,25 @@ export async function POST(req: NextRequest) {
       { onConflict: "wallet", ignoreDuplicates: true },
     );
 
-  // Read-modify-write: simple +1 increment. Race-tolerant since we only ever
-  // grant a single credit per verified tx.
   const { data: cur } = await sb
     .from("quicker_players")
     .select("paid_credits")
     .eq("wallet", session.wallet)
     .maybeSingle();
-  const next = ((cur?.paid_credits as number | undefined) ?? 0) + 1;
+  const next =
+    ((cur?.paid_credits as number | undefined) ?? 0) + pkg.rounds;
   await sb
     .from("quicker_players")
     .update({ paid_credits: next })
     .eq("wallet", session.wallet);
 
   const status = await getPlayStatus(sb, session.wallet);
-  return NextResponse.json({ ok: true, status });
+  // Quiet the unused-import warning when USDC_PER_ROUND happens to be unused
+  // by callers that skip the legacy field; reference it once.
+  void USDC_PER_ROUND;
+  return NextResponse.json({
+    ok: true,
+    grantedRounds: pkg.rounds,
+    status,
+  });
 }

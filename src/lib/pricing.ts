@@ -11,8 +11,26 @@ export function getTreasuryAddress(): string | null {
   return addr.toLowerCase();
 }
 
-// Cost of one round in USDC. WLD amount = USDC_PER_ROUND / WLD-USDC-price.
+// Cost of one round in USDC (used as the unit for legacy single-round buys).
 export const USDC_PER_ROUND = 0.1;
 
 // Free plays granted per rolling 24h window.
 export const FREE_PLAYS_PER_DAY = 3;
+
+// Top-up packages. Order = display order.
+export type Package = {
+  id: number;
+  rounds: number;
+  usdcPrice: number;
+  label: string;
+};
+
+export const PACKAGES: Package[] = [
+  { id: 1, rounds: 1, usdcPrice: 0.1, label: "1 round" },
+  { id: 2, rounds: 3, usdcPrice: 0.25, label: "3 rounds" },
+  { id: 3, rounds: 10, usdcPrice: 0.7, label: "10 rounds" },
+];
+
+export function getPackage(id: number): Package | undefined {
+  return PACKAGES.find((p) => p.id === id);
+}
