@@ -215,8 +215,11 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
       <section className="w-full">
         <div className="flex items-baseline justify-between px-1 mb-1.5">
           <h3 className="text-xs font-semibold text-stone-700 uppercase tracking-wider">
-            Leaderboard
+            All-time leaderboard
           </h3>
+          <span className="text-[10px] text-stone-500">
+            Best single game
+          </span>
         </div>
         <Leaderboard highlightWallet={wallet} />
       </section>
