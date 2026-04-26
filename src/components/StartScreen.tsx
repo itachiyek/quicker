@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { loadModel } from "@/lib/recognizer";
 import { playStart, unlockAudio } from "@/lib/sounds";
 import WalletBar from "./WalletBar";
 import Leaderboard from "./Leaderboard";
 import BuyPanel from "./BuyRoundButton";
+import ContestCard from "./ContestCard";
 import { useSession } from "@/hooks/useSession";
 import { usePlayStatus } from "@/hooks/usePlayStatus";
 
@@ -191,26 +191,7 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
         )}
       </section>
 
-      <Link
-        href="/contest"
-        className="card-glass w-full p-4 flex items-center gap-3 hover:bg-white/80 transition-colors"
-      >
-        <span className="w-10 h-10 rounded-xl bg-stone-900 text-amber-200 flex items-center justify-center text-lg">
-          🏆
-        </span>
-        <div className="flex-1">
-          <div className="text-[10px] uppercase tracking-wider text-stone-500">
-            Weekly Contest
-          </div>
-          <div className="text-sm font-semibold">
-            Top 10 split{" "}
-            <span className="font-serif italic font-extrabold">200 WLD</span>
-          </div>
-        </div>
-        <span className="text-stone-400 text-lg" aria-hidden>
-          →
-        </span>
-      </Link>
+      <ContestCard />
 
       <section className="w-full">
         <div className="flex items-baseline justify-between px-1 mb-2">
