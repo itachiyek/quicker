@@ -18,7 +18,12 @@ type Pick = {
 export default function GameScreen({
   onFinish,
 }: {
-  onFinish: (score: number, total: number, durationSeconds: number) => void;
+  onFinish: (result: {
+    points: number;
+    solved: number;
+    bestStreak: number;
+    durationSeconds: number;
+  }) => void;
 }) {
   const [equations] = useState<Equation[]>(() => makeEquations(POOL_SIZE));
   const [index, setIndex] = useState(0);
@@ -33,6 +38,7 @@ export default function GameScreen({
   const indexRef = useRef(0);
   const pointsRef = useRef(0);
   const solvedRef = useRef(0);
+  const bestStreakRef = useRef(0);
   const lockRef = useRef(false);
 
   useEffect(() => {
@@ -44,6 +50,9 @@ export default function GameScreen({
   useEffect(() => {
     solvedRef.current = solved;
   }, [solved]);
+  useEffect(() => {
+    if (streak > bestStreakRef.current) bestStreakRef.current = streak;
+  }, [streak]);
 
   // Timer
   useEffect(() => {
@@ -54,7 +63,12 @@ export default function GameScreen({
           window.clearInterval(id);
           if (!finishedRef.current) {
             finishedRef.current = true;
-            onFinish(pointsRef.current, solvedRef.current, ROUND_DURATION);
+            onFinish({
+              points: pointsRef.current,
+              solved: solvedRef.current,
+              bestStreak: bestStreakRef.current,
+              durationSeconds: ROUND_DURATION,
+            });
           }
           return 0;
         }

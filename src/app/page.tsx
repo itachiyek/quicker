@@ -11,7 +11,13 @@ import { useSession } from "@/hooks/useSession";
 type Phase =
   | { kind: "start" }
   | { kind: "playing" }
-  | { kind: "end"; score: number; total: number; durationSeconds: number };
+  | {
+      kind: "end";
+      points: number;
+      solved: number;
+      bestStreak: number;
+      durationSeconds: number;
+    };
 
 export default function Home() {
   const router = useRouter();
@@ -23,7 +29,9 @@ export default function Home() {
   }, [wallet, loading, router]);
 
   if (loading || !wallet) {
-    return <LoadingScreen label={loading ? "Checking session" : "Redirecting"} />;
+    return (
+      <LoadingScreen label={loading ? "Checking session" : "Redirecting"} />
+    );
   }
 
   return (
@@ -33,17 +41,24 @@ export default function Home() {
       )}
       {phase.kind === "playing" && (
         <GameScreen
-          onFinish={(score, total, durationSeconds) =>
-            setPhase({ kind: "end", score, total, durationSeconds })
+          onFinish={(r) =>
+            setPhase({
+              kind: "end",
+              points: r.points,
+              solved: r.solved,
+              bestStreak: r.bestStreak,
+              durationSeconds: r.durationSeconds,
+            })
           }
         />
       )}
       {phase.kind === "end" && (
         <EndScreen
-          score={phase.score}
-          total={phase.total}
+          points={phase.points}
+          solved={phase.solved}
+          bestStreak={phase.bestStreak}
           durationSeconds={phase.durationSeconds}
-          onRestart={() => setPhase({ kind: "start" })}
+          onContinue={() => setPhase({ kind: "start" })}
         />
       )}
     </main>

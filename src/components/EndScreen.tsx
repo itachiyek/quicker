@@ -2,125 +2,141 @@
 
 import { useEffect, useState } from "react";
 import { playEnd } from "@/lib/sounds";
-import Leaderboard from "./Leaderboard";
-import WalletBar from "./WalletBar";
-import Logo from "./Logo";
 import { useSession } from "@/hooks/useSession";
 
-export default function EndScreen({
-  score,
-  total,
-  durationSeconds,
-  onRestart,
-}: {
-  score: number;
-  total: number;
+type Props = {
+  points: number;
+  solved: number;
+  bestStreak: number;
   durationSeconds: number;
-  onRestart: () => void;
-}) {
+  onContinue: () => void;
+};
+
+type SubmitState =
+  | { kind: "idle" }
+  | { kind: "saving" }
+  | { kind: "saved" }
+  | { kind: "skipped" }
+  | { kind: "error"; reason: string };
+
+export default function EndScreen({
+  points,
+  solved,
+  bestStreak,
+  durationSeconds,
+  onContinue,
+}: Props) {
   const { wallet } = useSession();
-  const [submitted, setSubmitted] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submit, setSubmit] = useState<SubmitState>({ kind: "idle" });
 
   useEffect(() => {
     playEnd();
   }, []);
 
+  // Submit the final score in the background.
   useEffect(() => {
-    if (!wallet || submitted) return;
+    if (!wallet) {
+      setSubmit({ kind: "skipped" });
+      return;
+    }
+    if (submit.kind !== "idle") return;
+    setSubmit({ kind: "saving" });
     let cancelled = false;
-    (async () => {
-      try {
-        const r = await fetch("/api/score", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ score, total, durationSeconds }),
-        });
-        if (!r.ok) {
-          const t = await r.text();
-          if (!cancelled) setSubmitError(t.slice(0, 100));
-          return;
-        }
-        if (!cancelled) setSubmitted(true);
-      } catch (e) {
-        if (!cancelled) setSubmitError(String(e).slice(0, 100));
-      }
-    })();
+    fetch("/api/score", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        score: points,
+        total: solved,
+        durationSeconds,
+      }),
+    })
+      .then(async (r) => {
+        if (cancelled) return;
+        if (r.ok) setSubmit({ kind: "saved" });
+        else setSubmit({ kind: "error", reason: (await r.text()).slice(0, 100) });
+      })
+      .catch((e) =>
+        !cancelled &&
+        setSubmit({
+          kind: "error",
+          reason: e instanceof Error ? e.message : "Failed",
+        }),
+      );
     return () => {
       cancelled = true;
     };
-  }, [wallet, score, total, durationSeconds, submitted]);
+  }, [wallet, points, solved, durationSeconds, submit.kind]);
 
-  let title = "Nice work!";
-  let subtitle = "Run it back?";
-  if (score >= 25) {
-    title = "Brain Athlete";
-    subtitle = "Elite reflexes.";
-  } else if (score >= 15) {
-    title = "Solid Drill";
-    subtitle = "Consistency pays.";
-  } else if (score < 5) {
-    title = "Warming Up";
-    subtitle = "Practice makes perfect.";
-  }
+  let title = "Nice work";
+  if (points >= 250) title = "Brain athlete";
+  else if (points >= 150) title = "Solid drill";
+  else if (points < 50) title = "Warming up";
 
   return (
-    <div className="flex-1 flex flex-col items-center p-4 gap-6 max-w-md w-full mx-auto pt-5 pb-10">
-      <header className="w-full flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <Logo size={32} />
-          <div className="text-base font-serif italic font-extrabold tracking-tight">
-            Quicker
-          </div>
+    <main className="flex-1 flex flex-col items-center justify-center max-w-md w-full mx-auto px-5 py-8 gap-6">
+      <header className="text-center">
+        <div className="text-[10px] uppercase tracking-[0.25em] text-stone-500 mb-1">
+          Round complete
         </div>
-        <WalletBar compact />
+        <h1 className="text-3xl font-serif italic font-extrabold tracking-tight">
+          {title}
+        </h1>
       </header>
 
-      <section className="paper p-6 w-full text-center">
-        <div className="text-xs uppercase tracking-wider text-stone-500 mb-2">
-          {title}
+      {/* Big score */}
+      <section className="card-glass w-full p-6 text-center">
+        <div className="text-[10px] uppercase tracking-wider text-stone-500">
+          Score
         </div>
         <div className="font-serif text-7xl font-bold tabular-nums leading-none my-1">
-          {score}
+          {points}
         </div>
-        <div className="text-stone-600 text-sm mt-2">
-          {score} solved · {durationSeconds}s
-        </div>
-        <div className="text-stone-500 text-xs mt-1 italic">{subtitle}</div>
 
-        <div className="mt-4 text-xs">
-          {!wallet && (
-            <span className="text-amber-700">
-              Connect a wallet to save your score.
-            </span>
-          )}
-          {wallet && submitted && (
-            <span className="text-emerald-700 font-medium">
-              Score saved ✓
-            </span>
-          )}
-          {wallet && !submitted && !submitError && (
+        <div className="grid grid-cols-2 gap-3 mt-5 pt-5 border-t border-stone-200/80">
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-stone-500">
+              Correct
+            </div>
+            <div className="font-serif text-2xl font-bold tabular-nums">
+              {solved}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-stone-500">
+              Best streak
+            </div>
+            <div className="font-serif text-2xl font-bold tabular-nums">
+              {bestStreak}
+              {bestStreak >= 5 && <span className="ml-1">🔥</span>}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 text-[11px] h-4">
+          {submit.kind === "saving" && (
             <span className="text-stone-500">Saving…</span>
           )}
-          {submitError && (
-            <span className="text-rose-700">{submitError}</span>
+          {submit.kind === "saved" && (
+            <span className="text-emerald-700 font-medium">Score saved ✓</span>
+          )}
+          {submit.kind === "skipped" && (
+            <span className="text-amber-700">
+              Sign in to save scores
+            </span>
+          )}
+          {submit.kind === "error" && (
+            <span className="text-rose-700">Save failed</span>
           )}
         </div>
-
-        <button onClick={onRestart} className="btn-primary w-full mt-6">
-          Play again
-        </button>
       </section>
 
-      <section className="w-full">
-        <div className="flex items-baseline justify-between px-1 mb-2">
-          <h3 className="text-sm font-semibold text-stone-700 uppercase tracking-wider">
-            Leaderboard
-          </h3>
-          <span className="text-xs text-stone-500">Top 100</span>
-        </div>
-        <Leaderboard highlightWallet={wallet} />
-      </section>
-    </div>
+      <button
+        onClick={onContinue}
+        className="btn-primary w-full text-base"
+      >
+        Continue →
+      </button>
+    </main>
   );
 }
