@@ -27,8 +27,10 @@ export async function getPlayStatus(
       .from("quicker_plays")
       .select("started_at,source")
       .eq("wallet", wallet)
+      .eq("source", "free")
       .gte("started_at", since)
-      .order("started_at", { ascending: true }),
+      .order("started_at", { ascending: true })
+      .limit(FREE_PLAYS_PER_DAY),
     sb
       .from("quicker_players")
       .select("paid_credits")
@@ -41,9 +43,7 @@ export async function getPlayStatus(
       .maybeSingle(),
   ]);
 
-  const recentFreePlays = (playsData ?? []).filter(
-    (p: { source: string }) => p.source === "free",
-  );
+  const recentFreePlays = playsData ?? [];
   const freeUsed = recentFreePlays.length;
   const freeRemaining = Math.max(0, FREE_PLAYS_PER_DAY - freeUsed);
 
