@@ -25,6 +25,7 @@ export default function GameScreen({
   const [points, setPoints] = useState(0);
   const [solved, setSolved] = useState(0);
   const [streak, setStreak] = useState(0);
+  const [streakAnim, setStreakAnim] = useState<{ key: number; delta: number } | null>(null);
   const [timeLeft, setTimeLeft] = useState(ROUND_DURATION);
   const [pick, setPick] = useState<Pick | null>(null);
 
@@ -86,7 +87,8 @@ export default function GameScreen({
         window.setTimeout(advance, ADVANCE_DELAY_CORRECT);
       } else {
         playWrong();
-        setStreak(0);
+        setStreak((s) => Math.max(0, s - 1));
+        setStreakAnim({ key: Date.now(), delta: -1 });
         window.setTimeout(advance, ADVANCE_DELAY_WRONG);
       }
     },
@@ -110,10 +112,19 @@ export default function GameScreen({
         <Stat
           label="Streak"
           value={
-            <>
+            <span className="relative inline-flex items-center">
               {streak}
               {streak >= 3 && <span className="ml-0.5">🔥</span>}
-            </>
+              {streakAnim && (
+                <span
+                  key={streakAnim.key}
+                  aria-hidden
+                  className="streak-pop absolute -top-2 left-1/2 -translate-x-1/2 text-rose-600 font-bold text-base"
+                >
+                  −1
+                </span>
+              )}
+            </span>
           }
         />
       </header>
