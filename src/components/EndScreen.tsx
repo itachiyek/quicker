@@ -68,14 +68,9 @@ export default function EndScreen({
     <div className="flex-1 flex flex-col items-center p-4 gap-6 max-w-md w-full mx-auto pt-5 pb-10">
       <header className="w-full flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <Logo size={36} />
-          <div className="leading-tight">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
-              Brain
-            </div>
-            <div className="text-base font-serif font-bold tracking-tight">
-              Trainer
-            </div>
+          <Logo size={32} />
+          <div className="text-base font-serif italic font-extrabold tracking-tight">
+            Quicker
           </div>
         </div>
         <WalletBar compact />

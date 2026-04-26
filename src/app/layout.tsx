@@ -3,8 +3,8 @@ import Providers from "@/components/Providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Brain Trainer",
-  description: "Mental math with handwriting recognition",
+  title: "Quicker",
+  description: "60-second mental math drills with handwriting recognition",
   manifest: "/manifest.webmanifest",
 };
 

@@ -113,8 +113,8 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
       <header className="w-full flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <Logo size={32} />
-          <div className="text-base font-serif font-bold tracking-tight">
-            Brain Trainer
+          <div className="text-base font-serif italic font-extrabold tracking-tight">
+            Quicker
           </div>
         </div>
         <WalletBar compact />

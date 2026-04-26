@@ -29,7 +29,7 @@ function buildSiweMessage(opts: {
   ].join("\n");
 }
 
-const STATEMENT = "Sign in to Brain Trainer to track your scores.";
+const STATEMENT = "Sign in to Quicker to track your scores.";
 
 function isInWorldApp(): boolean {
   if (typeof window === "undefined") return false;

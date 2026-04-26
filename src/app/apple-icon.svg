@@ -1,18 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+    <linearGradient id="qbg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#292524"/>
       <stop offset="1" stop-color="#0c0a09"/>
     </linearGradient>
-    <linearGradient id="dot" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#fde68a"/>
-      <stop offset="1" stop-color="#f59e0b"/>
-    </linearGradient>
   </defs>
-  <rect width="180" height="180" rx="40" fill="url(#bg)"/>
-  <text x="90" y="128" text-anchor="middle"
+  <rect width="180" height="180" rx="40" fill="url(#qbg)"/>
+  <path d="M 100 50 A 40 40 0 0 1 158 84"
+        stroke="#fde68a" stroke-width="7" fill="none" stroke-linecap="round"/>
+  <line x1="135" y1="68" x2="155" y2="56"
+        stroke="#fde68a" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="135" cy="68" r="6" fill="#fde68a"/>
+  <text x="90" y="160" text-anchor="middle"
         font-family="Georgia, 'Times New Roman', serif"
-        font-weight="700" font-size="116" fill="#fafaf9"
-        letter-spacing="-3">B</text>
-  <circle cx="135" cy="50" r="14" fill="url(#dot)"/>
+        font-style="italic" font-weight="900" font-size="130"
+        fill="#fafaf9">Q</text>
 </svg>

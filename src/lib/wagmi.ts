@@ -8,14 +8,14 @@ const wcProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
 
 const connectors = [
   injected({ shimDisconnect: true }),
-  coinbaseWallet({ appName: "Brain Trainer" }),
+  coinbaseWallet({ appName: "Quicker" }),
   ...(wcProjectId
     ? [
         walletConnect({
           projectId: wcProjectId,
           showQrModal: true,
           metadata: {
-            name: "Brain Trainer",
+            name: "Quicker",
             description: "Brain Age-style mental math game",
             url: "https://quicker-one.vercel.app",
             icons: [],

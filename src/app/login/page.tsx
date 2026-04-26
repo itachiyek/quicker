@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import WalletBar from "@/components/WalletBar";
 import LoadingScreen from "@/components/LoadingScreen";
-import Logo from "@/components/Logo";
+import { LogoWordmark } from "@/components/Logo";
 import { useSession } from "@/hooks/useSession";
 
 export default function LoginPage() {
@@ -20,13 +20,10 @@ export default function LoginPage() {
 
   return (
     <main className="flex-1 flex flex-col items-center justify-center px-5 pb-8 max-w-md w-full mx-auto">
-      <Logo size={64} />
-      <h1 className="text-4xl font-serif font-bold tracking-tight leading-none mt-5 gradient-text">
-        Brain Trainer
-      </h1>
-      <p className="mt-2 text-stone-600 text-sm">
-        60-second mental math.
-      </p>
+      <div className="text-stone-900">
+        <LogoWordmark height={120} />
+      </div>
+      <p className="mt-2 text-stone-600 text-sm">60-second mental math.</p>
 
       <section className="card-glass w-full p-6 mt-8">
         <WalletBar />
