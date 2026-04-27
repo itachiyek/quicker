@@ -23,6 +23,15 @@ type Entry = {
   games_played: number;
 };
 
+type Lobby = {
+  id: string;
+  creator_wallet: string;
+  token_symbol: "WLD" | "USDC";
+  amount_per_player: number;
+  creator_score: number | null;
+  created_at: string;
+};
+
 function useStats(wallet: string | null): Stats | null {
   const [stats, setStats] = useState<Stats | null>(null);
   useEffect(() => {
@@ -55,16 +64,34 @@ function useStats(wallet: string | null): Stats | null {
   return stats;
 }
 
+function useOpenLobbies(enabled: boolean) {
+  const [lobbies, setLobbies] = useState<Lobby[]>([]);
+  useEffect(() => {
+    if (!enabled) return;
+    fetch("/api/lobby/list", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d: { lobbies?: Lobby[] }) => setLobbies(d.lobbies ?? []))
+      .catch(() => {});
+  }, [enabled]);
+  return lobbies;
+}
+
+type Mode = "solo" | "pvp";
+
 export default function StartScreen({ onStart }: { onStart: () => void }) {
+  const [mode, setMode] = useState<Mode>("solo");
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [startError, setStartError] = useState<string | null>(null);
   const { wallet } = useSession();
   const stats = useStats(wallet);
   const { status, refresh: refreshStatus } = usePlayStatus(!!wallet);
+  const openLobbies = useOpenLobbies(mode === "pvp");
 
   useEffect(() => {
-    loadModel((_m, p) => typeof p === "number" && setProgress(p)).catch(() => {});
+    loadModel((_m, p) => typeof p === "number" && setProgress(p)).catch(
+      () => {},
+    );
   }, []);
 
   const handleStart = async () => {
@@ -109,124 +136,237 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
       </header>
 
       {wallet && stats && (
-        <section className="card-glass w-full p-4 grid grid-cols-3 divide-x divide-stone-200/80 text-center">
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-stone-500">
-              Best
-            </div>
-            <div className="text-2xl font-serif font-bold tabular-nums">
-              {stats.best_score}
-            </div>
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-stone-500">
-              Games
-            </div>
-            <div className="text-2xl font-serif font-bold tabular-nums">
-              {stats.games_played}
-            </div>
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-stone-500">
-              Rank
-            </div>
-            <div className="text-2xl font-serif font-bold tabular-nums">
-              {stats.rank ? `#${stats.rank}` : "—"}
-            </div>
-          </div>
+        <section className="card-glass w-full p-3 grid grid-cols-3 divide-x divide-stone-200/80 text-center">
+          <Mini label="Best" value={stats.best_score} />
+          <Mini label="Games" value={stats.games_played} />
+          <Mini
+            label="Rank"
+            value={stats.rank ? `#${stats.rank}` : "—"}
+          />
         </section>
       )}
 
-      {/* PvP battles CTA */}
-      <Link
-        href="/battles"
-        className="card-glass w-full p-4 flex items-center gap-3 hover:bg-white/80 transition-colors"
-      >
-        <span className="w-10 h-10 rounded-xl bg-stone-900 text-amber-200 flex items-center justify-center text-lg">
-          ⚔
-        </span>
-        <div className="flex-1">
-          <div className="text-[10px] uppercase tracking-wider text-stone-500">
-            PvP Battle
-          </div>
-          <div className="text-sm font-semibold">
-            Stake WLD or USDC · winner takes the pool
-          </div>
-        </div>
-        <span className="text-stone-400 text-lg" aria-hidden>
-          →
-        </span>
-      </Link>
+      {/* Mode picker */}
+      <div className="card-glass w-full p-1 grid grid-cols-2 gap-1">
+        <ModeTab
+          active={mode === "solo"}
+          onClick={() => setMode("solo")}
+          icon="🎯"
+          label="Solo"
+        />
+        <ModeTab
+          active={mode === "pvp"}
+          onClick={() => setMode("pvp")}
+          icon="⚔"
+          label="PvP"
+        />
+      </div>
 
-      <ContestCard />
-
-      {/* Play card */}
-      <section className="card-glass w-full p-5 flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <span className="chip">60s drill</span>
-          {status && (
-            <div className="flex items-center gap-2 text-xs tabular-nums">
-              <span className="chip">
-                {status.freeRemaining}/{status.freeCap} free
-              </span>
-              <span
-                className={`chip ${
-                  status.paidCredits > 0
-                    ? "!text-amber-700 !border-amber-300 !bg-amber-50"
-                    : ""
-                }`}
-              >
-                {status.paidCredits} credits
-              </span>
+      {mode === "solo" ? (
+        <>
+          {/* Play card */}
+          <section className="card-glass w-full p-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <span className="chip">60s drill</span>
+              {status && (
+                <div className="flex items-center gap-2 text-xs tabular-nums">
+                  <span className="chip">
+                    {status.freeRemaining}/{status.freeCap} free
+                  </span>
+                  <span
+                    className={`chip ${
+                      status.paidCredits > 0
+                        ? "!text-amber-700 !border-amber-300 !bg-amber-50"
+                        : ""
+                    }`}
+                  >
+                    {status.paidCredits} credits
+                  </span>
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        <button
-          onClick={handleStart}
-          disabled={loading || !wallet || status?.canPlay === false}
-          className="btn-primary w-full text-base"
-        >
-          {loading ? "Loading…" : "Start"}
-          {!loading && <span aria-hidden className="opacity-70">→</span>}
-        </button>
+            <button
+              onClick={handleStart}
+              disabled={loading || !wallet || status?.canPlay === false}
+              className="btn-primary w-full text-base"
+            >
+              {loading ? "Loading…" : "Start"}
+              {!loading && <span aria-hidden className="opacity-70">→</span>}
+            </button>
 
-        {cooldown && status?.canPlay === false && (
-          <p className="text-[11px] text-stone-500 text-center -mt-2">
-            Next free in {cooldown}
-          </p>
-        )}
-        {startError && (
-          <p className="text-xs text-rose-700 text-center -mt-2">{startError}</p>
-        )}
-        {progress > 0 && progress < 1 && (
-          <div className="h-1 bg-stone-200 rounded-full overflow-hidden -mt-2">
-            <div
-              className="h-full bg-emerald-500 transition-all duration-300"
-              style={{ width: `${Math.round(progress * 100)}%` }}
-            />
-          </div>
-        )}
+            {cooldown && status?.canPlay === false && (
+              <p className="text-[11px] text-stone-500 text-center -mt-2">
+                Next free in {cooldown}
+              </p>
+            )}
+            {startError && (
+              <p className="text-xs text-rose-700 text-center -mt-2">
+                {startError}
+              </p>
+            )}
+            {progress > 0 && progress < 1 && (
+              <div className="h-1 bg-stone-200 rounded-full overflow-hidden -mt-2">
+                <div
+                  className="h-full bg-emerald-500 transition-all duration-300"
+                  style={{ width: `${Math.round(progress * 100)}%` }}
+                />
+              </div>
+            )}
 
-        {status && (
-          <div className="pt-3 border-t border-stone-200/70">
-            <BuyPanel status={status} onPurchased={refreshStatus} />
-          </div>
-        )}
-      </section>
+            {status && (
+              <div className="pt-3 border-t border-stone-200/70">
+                <BuyPanel status={status} onPurchased={refreshStatus} />
+              </div>
+            )}
+          </section>
 
-      <section className="w-full">
-        <div className="flex items-baseline justify-between px-1 mb-2">
-          <h3 className="text-xs font-semibold text-stone-700 uppercase tracking-wider">
-            All-time leaderboard
-          </h3>
-          <span className="text-xs text-stone-500">Top 10</span>
-        </div>
-        <Leaderboard highlightWallet={wallet} />
-        <p className="mt-3 text-[11px] text-stone-500 text-center">
-          Best single-game score · all time
-        </p>
-      </section>
+          <ContestCard />
+
+          <section className="w-full">
+            <div className="flex items-baseline justify-between px-1 mb-2">
+              <h3 className="text-xs font-semibold text-stone-700 uppercase tracking-wider">
+                All-time leaderboard
+              </h3>
+              <span className="text-xs text-stone-500">Top 10</span>
+            </div>
+            <Leaderboard highlightWallet={wallet} />
+            <p className="mt-3 text-[11px] text-stone-500 text-center">
+              Best single-game score · all time
+            </p>
+          </section>
+        </>
+      ) : (
+        <>
+          {/* PvP intro card */}
+          <section className="card-glass w-full p-5 text-center">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
+              PvP Battle
+            </div>
+            <h2 className="font-serif text-2xl font-extrabold italic tracking-tight mt-1">
+              Stake. Solve. Win.
+            </h2>
+            <p className="text-stone-600 text-sm mt-2 leading-snug">
+              Open a lobby with WLD or USDC, play your 60s round, and the
+              first challenger to beat you takes the pool.
+            </p>
+            <div className="grid grid-cols-2 gap-2 mt-4">
+              <Link href="/battles" className="btn-primary">
+                Create lobby
+              </Link>
+              <Link
+                href="/battles"
+                className="rounded-xl border border-stone-300 bg-white py-3 px-4 font-semibold text-stone-900 hover:bg-stone-50"
+              >
+                Browse
+              </Link>
+            </div>
+            <Link
+              href="/history"
+              className="mt-3 inline-block text-xs text-stone-500 hover:text-stone-900"
+            >
+              Match history →
+            </Link>
+          </section>
+
+          {/* Open lobbies preview */}
+          <section className="w-full">
+            <div className="flex items-baseline justify-between px-1 mb-2">
+              <h3 className="text-xs font-semibold text-stone-700 uppercase tracking-wider">
+                Open lobbies
+              </h3>
+              <span className="text-xs text-stone-500">{openLobbies.length}</span>
+            </div>
+            {openLobbies.length === 0 ? (
+              <div className="panel text-sm text-stone-500 text-center p-5">
+                No open lobbies. Be the first.
+              </div>
+            ) : (
+              <ol className="panel divide-y divide-stone-200 overflow-hidden">
+                {openLobbies.slice(0, 5).map((l) => {
+                  const short = `${l.creator_wallet.slice(0, 6)}…${l.creator_wallet.slice(-4)}`;
+                  const me =
+                    l.creator_wallet.toLowerCase() === wallet?.toLowerCase();
+                  return (
+                    <li key={l.id}>
+                      <Link
+                        href={`/battles/${l.id}`}
+                        className="flex items-center gap-3 px-3 py-2.5 hover:bg-stone-50"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="font-mono text-sm text-stone-800 truncate">
+                            {me ? "you" : short}
+                          </div>
+                          <div className="text-[10px] text-stone-500">
+                            beat{" "}
+                            <span className="font-bold tabular-nums">
+                              {l.creator_score ?? "?"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="font-serif font-bold tabular-nums text-base">
+                          {l.amount_per_player} {l.token_symbol}
+                        </div>
+                      </Link>
+                    </li>
+                  );
+                })}
+                {openLobbies.length > 5 && (
+                  <li>
+                    <Link
+                      href="/battles"
+                      className="block text-center text-xs text-stone-500 py-2 hover:text-stone-900"
+                    >
+                      See all {openLobbies.length} →
+                    </Link>
+                  </li>
+                )}
+              </ol>
+            )}
+          </section>
+        </>
+      )}
     </div>
+  );
+}
+
+function Mini({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div>
+      <div className="text-[9px] uppercase tracking-wider text-stone-500">
+        {label}
+      </div>
+      <div className="text-xl font-serif font-bold tabular-nums leading-none mt-0.5">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function ModeTab({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: string;
+  label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center justify-center gap-2 py-2.5 rounded-lg font-semibold text-sm transition-all ${
+        active
+          ? "bg-stone-900 text-white shadow-sm"
+          : "text-stone-600 hover:text-stone-900"
+      }`}
+    >
+      <span className={active ? "text-amber-200" : ""} aria-hidden>
+        {icon}
+      </span>
+      {label}
+    </button>
   );
 }
