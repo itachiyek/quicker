@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { loadModel } from "@/lib/recognizer";
 import { playStart, unlockAudio } from "@/lib/sounds";
 import WalletBar from "./WalletBar";
@@ -135,6 +136,27 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
           </div>
         </section>
       )}
+
+      {/* PvP battles CTA */}
+      <Link
+        href="/battles"
+        className="card-glass w-full p-4 flex items-center gap-3 hover:bg-white/80 transition-colors"
+      >
+        <span className="w-10 h-10 rounded-xl bg-stone-900 text-amber-200 flex items-center justify-center text-lg">
+          ⚔
+        </span>
+        <div className="flex-1">
+          <div className="text-[10px] uppercase tracking-wider text-stone-500">
+            PvP Battle
+          </div>
+          <div className="text-sm font-semibold">
+            Stake WLD or USDC · winner takes the pool
+          </div>
+        </div>
+        <span className="text-stone-400 text-lg" aria-hidden>
+          →
+        </span>
+      </Link>
 
       <ContestCard />
 
