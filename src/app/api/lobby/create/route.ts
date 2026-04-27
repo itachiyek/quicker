@@ -10,7 +10,7 @@ import {
 } from "@/lib/pvp";
 
 const POOL_SIZE = 200;
-const MIN_AMOUNT = 0.1; // arbitrary floor; tune if needed
+const MIN_AMOUNT = 0.05;
 const MAX_AMOUNT = 10_000;
 
 export async function POST(req: NextRequest) {

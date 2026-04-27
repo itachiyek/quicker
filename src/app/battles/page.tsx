@@ -16,7 +16,7 @@ type Lobby = {
 };
 
 const SYMBOL_OPTIONS: ("WLD" | "USDC")[] = ["WLD", "USDC"];
-const QUICK_AMOUNTS = [0.5, 1, 2, 5];
+const QUICK_AMOUNTS = [0.05, 0.5, 1, 5];
 
 export default function BattlesPage() {
   const router = useRouter();
@@ -24,7 +24,7 @@ export default function BattlesPage() {
   const [lobbies, setLobbies] = useState<Lobby[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [token, setToken] = useState<"WLD" | "USDC">("WLD");
-  const [amount, setAmount] = useState<string>("1");
+  const [amount, setAmount] = useState<string>("0.05");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -43,8 +43,8 @@ export default function BattlesPage() {
   const onCreate = async () => {
     setCreateError(null);
     const amt = Number(amount);
-    if (!Number.isFinite(amt) || amt <= 0) {
-      setCreateError("Enter a positive amount");
+    if (!Number.isFinite(amt) || amt < 0.05) {
+      setCreateError("Minimum stake is 0.05");
       return;
     }
     setCreating(true);
