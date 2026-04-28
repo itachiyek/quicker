@@ -26,26 +26,27 @@ function useStats(wallet: string | null): Stats | null {
   useEffect(() => {
     if (!wallet) return;
     let cancelled = false;
-    fetch("/api/leaderboard", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d: { entries?: Entry[] }) => {
-        if (cancelled) return;
-        const entries = d.entries ?? [];
-        const idx = entries.findIndex(
-          (e) => e.wallet.toLowerCase() === wallet.toLowerCase(),
-        );
-        if (idx === -1) {
-          setStats({ best_score: 0, games_played: 0, rank: null });
-        } else {
-          const me = entries[idx];
-          setStats({
-            best_score: me.best_score,
-            games_played: me.games_played,
-            rank: idx + 1,
-          });
-        }
-      })
-      .catch(() => !cancelled && setStats(null));
+    import("@/lib/cache").then(({ fetchCached }) =>
+      fetchCached<{ entries?: Entry[] }>("/api/leaderboard", 60_000)
+        .then((d) => {
+          if (cancelled) return;
+          const entries = d.entries ?? [];
+          const idx = entries.findIndex(
+            (e) => e.wallet.toLowerCase() === wallet.toLowerCase(),
+          );
+          if (idx === -1) {
+            setStats({ best_score: 0, games_played: 0, rank: null });
+          } else {
+            const me = entries[idx];
+            setStats({
+              best_score: me.best_score,
+              games_played: me.games_played,
+              rank: idx + 1,
+            });
+          }
+        })
+        .catch(() => !cancelled && setStats(null)),
+    );
     return () => {
       cancelled = true;
     };

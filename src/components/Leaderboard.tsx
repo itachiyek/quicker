@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { fetchCached } from "@/lib/cache";
 
 type Entry = {
   wallet: string;
@@ -22,9 +23,11 @@ export default function Leaderboard({
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/leaderboard", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d: { entries?: Entry[]; configured?: boolean }) => {
+    fetchCached<{ entries?: Entry[]; configured?: boolean }>(
+      "/api/leaderboard",
+      60_000,
+    )
+      .then((d) => {
         if (cancelled) return;
         setEntries(d.entries ?? []);
         setConfigured(d.configured !== false);

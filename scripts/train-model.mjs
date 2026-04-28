@@ -59,7 +59,7 @@ model.compile({
 });
 
 console.log("Training...");
-const EPOCHS = 35;
+const EPOCHS = 30;
 await model.fit(trainX, trainY, {
   epochs: EPOCHS,
   batchSize: 64,

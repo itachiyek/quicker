@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
-export const revalidate = 5;
+export const revalidate = 30;
 
 const PAGE_SIZE = 20;
 

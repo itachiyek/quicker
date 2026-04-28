@@ -52,7 +52,8 @@
       "Bash(curl -sS -o /dev/null -w \"GET / %{http_code} %{time_total}s\\\\n\" https://quicker-one.vercel.app/)",
       "Bash(curl -sS -o /dev/null -w \"GET /api/auth/me %{http_code} %{time_total}s\\\\n\" https://quicker-one.vercel.app/api/auth/me)",
       "Bash(curl -sS -o /dev/null -w 'GET __TRACKED_VAR__ %{http_code} %{time_total}s\\\\n' https://quicker-one.vercel.app__TRACKED_VAR__)",
-      "Bash(curl -sS https://quicker-one.vercel.app/api/lobby/escrow)"
+      "Bash(curl -sS https://quicker-one.vercel.app/api/lobby/escrow)",
+      "Bash(awk '{print $2}')"
     ]
   }
 }

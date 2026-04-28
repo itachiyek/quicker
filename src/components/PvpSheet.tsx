@@ -92,10 +92,11 @@ export default function PvpSheet() {
 
   useEffect(() => {
     if (!wallet) return;
-    fetch("/api/me/pvp-stats", { cache: "no-store" })
-      .then((r) => r.json())
-      .then(setStats)
-      .catch(() => {});
+    import("@/lib/cache").then(({ fetchCached }) =>
+      fetchCached<PvpStats>("/api/me/pvp-stats", 60_000)
+        .then(setStats)
+        .catch(() => {}),
+    );
   }, [wallet]);
 
 

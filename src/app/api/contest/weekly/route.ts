@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
-export const revalidate = 5;
+export const revalidate = 60;
 
 const FALLBACK_PAYOUTS = [60, 40, 25, 18, 14, 12, 10, 8, 7, 6];
 const FALLBACK_POOL = 200;

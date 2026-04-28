@@ -63,10 +63,11 @@ export default function ContestSheet({
 
   useEffect(() => {
     if (!open) return;
-    fetch("/api/contest/weekly", { cache: "no-store" })
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => {});
+    import("@/lib/cache").then(({ fetchCached }) =>
+      fetchCached<Resp>("/api/contest/weekly", 5 * 60_000)
+        .then(setData)
+        .catch(() => {}),
+    );
   }, [open]);
 
   const remaining = useCountdown(
