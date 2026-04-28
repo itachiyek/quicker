@@ -72,11 +72,14 @@ export async function GET() {
     return NextResponse.json({ error: scoreErr.message }, { status: 500 });
   }
 
+  // Total score = sum of every Solo game's score within the contest window.
+  // The PvP game lives in a separate table (quicker_lobby_answers) and never
+  // writes to quicker_scores, so this naturally excludes PvP.
   type Agg = {
     wallet: string;
-    best_score: number;
+    total_score: number;
     games_played: number;
-    earliest_best: string;
+    first_play: string;
   };
   const byWallet = new Map<string, Agg>();
   for (const r of (scoreRows ?? []) as ScoreRow[]) {
@@ -85,35 +88,29 @@ export async function GET() {
     if (!prev) {
       byWallet.set(w, {
         wallet: w,
-        best_score: r.score,
+        total_score: r.score,
         games_played: 1,
-        earliest_best: r.played_at,
+        first_play: r.played_at,
       });
     } else {
+      prev.total_score += r.score;
       prev.games_played++;
-      if (r.score > prev.best_score) {
-        prev.best_score = r.score;
-        prev.earliest_best = r.played_at;
-      } else if (
-        r.score === prev.best_score &&
-        r.played_at < prev.earliest_best
-      ) {
-        prev.earliest_best = r.played_at;
-      }
+      if (r.played_at < prev.first_play) prev.first_play = r.played_at;
     }
   }
 
+  // Sort: highest total wins; whoever started playing first this week wins
+  // ties (rewards early commitment).
   const sorted = Array.from(byWallet.values()).sort((a, b) => {
-    if (b.best_score !== a.best_score) return b.best_score - a.best_score;
+    if (b.total_score !== a.total_score) return b.total_score - a.total_score;
     return (
-      new Date(a.earliest_best).getTime() -
-      new Date(b.earliest_best).getTime()
+      new Date(a.first_play).getTime() - new Date(b.first_play).getTime()
     );
   });
 
   const entries = sorted.slice(0, 10).map((agg, i) => ({
     wallet: agg.wallet,
-    best_score: agg.best_score,
+    score: agg.total_score,
     games_played: agg.games_played,
     prize_wld: payouts[i] ?? 0,
   }));

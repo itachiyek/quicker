@@ -6,7 +6,8 @@ import { useSession } from "@/hooks/useSession";
 
 type Entry = {
   wallet: string;
-  best_score: number;
+  /** Sum of all Solo-mode scores during the contest window. */
+  score: number;
   games_played: number;
   prize_wld: number;
 };
@@ -115,10 +116,10 @@ export default function ContestSheet({
           </span>
           <div className="text-xs text-stone-700 leading-relaxed">
             <span className="font-semibold text-stone-900">
-              Play in Solo mode to qualify.
+              Play Solo to qualify.
             </span>{" "}
-            Only Solo round scores within the contest window count for the
-            standings — PvP rounds don&apos;t.
+            Every Solo round&apos;s score is added to your weekly total — play
+            more, climb higher. PvP rounds don&apos;t count.
           </div>
         </section>
 
@@ -151,7 +152,7 @@ export default function ContestSheet({
                     {e ? `${e.wallet.slice(0, 6)}…${e.wallet.slice(-4)}` : "—"}
                   </span>
                   <span className="tabular-nums text-stone-700 font-semibold w-10 text-right">
-                    {e ? e.best_score : "·"}
+                    {e ? e.score : "·"}
                   </span>
                   <span className="tabular-nums text-amber-700 font-bold w-16 text-right">
                     {prize} WLD
@@ -161,8 +162,8 @@ export default function ContestSheet({
             })}
           </ol>
           <p className="mt-3 text-[11px] text-stone-500 text-center">
-            Best score in the contest window wins. Ties broken by who reached
-            it first.
+            Every Solo round adds to your weekly total. Ties go to whoever
+            started playing first.
           </p>
         </section>
       </div>
