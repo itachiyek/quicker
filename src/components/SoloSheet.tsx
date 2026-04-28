@@ -9,11 +9,56 @@ import ContestCard from "./ContestCard";
 import { useSession } from "@/hooks/useSession";
 import { usePlayStatus } from "@/hooks/usePlayStatus";
 
+type Stats = {
+  best_score: number;
+  games_played: number;
+  rank: number | null;
+};
+
+type Entry = {
+  wallet: string;
+  best_score: number;
+  games_played: number;
+};
+
+function useStats(wallet: string | null): Stats | null {
+  const [stats, setStats] = useState<Stats | null>(null);
+  useEffect(() => {
+    if (!wallet) return;
+    let cancelled = false;
+    fetch("/api/leaderboard", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d: { entries?: Entry[] }) => {
+        if (cancelled) return;
+        const entries = d.entries ?? [];
+        const idx = entries.findIndex(
+          (e) => e.wallet.toLowerCase() === wallet.toLowerCase(),
+        );
+        if (idx === -1) {
+          setStats({ best_score: 0, games_played: 0, rank: null });
+        } else {
+          const me = entries[idx];
+          setStats({
+            best_score: me.best_score,
+            games_played: me.games_played,
+            rank: idx + 1,
+          });
+        }
+      })
+      .catch(() => !cancelled && setStats(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [wallet]);
+  return stats;
+}
+
 export default function SoloSheet({ onStart }: { onStart: () => void }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [startError, setStartError] = useState<string | null>(null);
   const { wallet } = useSession();
+  const stats = useStats(wallet);
   const { status, refresh: refreshStatus } = usePlayStatus(!!wallet);
 
   useEffect(() => {
@@ -55,7 +100,18 @@ export default function SoloSheet({ onStart }: { onStart: () => void }) {
   })();
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 pb-4">
+      {wallet && stats && (
+        <section className="card-glass w-full p-3 grid grid-cols-3 divide-x divide-stone-200/80 text-center">
+          <Mini label="Best" value={stats.best_score} />
+          <Mini label="Games" value={stats.games_played} />
+          <Mini
+            label="Rank"
+            value={stats.rank ? `#${stats.rank}` : "—"}
+          />
+        </section>
+      )}
+
       <section className="card-glass w-full p-5 flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <span className="chip">60s drill</span>
@@ -126,6 +182,19 @@ export default function SoloSheet({ onStart }: { onStart: () => void }) {
           Best single-game score · all time
         </p>
       </section>
+    </div>
+  );
+}
+
+function Mini({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div>
+      <div className="text-[9px] uppercase tracking-wider text-stone-500">
+        {label}
+      </div>
+      <div className="display text-xl font-black italic tabular-nums leading-none mt-0.5">
+        {value}
+      </div>
     </div>
   );
 }

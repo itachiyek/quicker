@@ -14,9 +14,18 @@ type Lobby = {
   created_at: string;
 };
 
+type PvpStats = {
+  played: number;
+  won: number;
+  lost: number;
+  tied: number;
+  open: number;
+};
+
 export default function PvpSheet() {
   const { wallet } = useSession();
   const [lobbies, setLobbies] = useState<Lobby[]>([]);
+  const [stats, setStats] = useState<PvpStats | null>(null);
   const [showRules, setShowRules] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
 
@@ -27,18 +36,37 @@ export default function PvpSheet() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (!wallet) return;
+    fetch("/api/me/pvp-stats", { cache: "no-store" })
+      .then((r) => r.json())
+      .then(setStats)
+      .catch(() => {});
+  }, [wallet]);
+
   return (
-    <div className="flex flex-col gap-4">
-      <section className="card-glass w-full p-5 text-center">
-        <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
+    <div className="flex flex-col gap-4 pb-4">
+      {wallet && stats && (
+        <section className="card-glass w-full p-3 grid grid-cols-4 divide-x divide-stone-200/80 text-center">
+          <Mini label="Played" value={stats.played} />
+          <Mini label="Won" value={stats.won} accent="emerald" />
+          <Mini label="Lost" value={stats.lost} accent="rose" />
+          <Mini label="Tied" value={stats.tied} accent="amber" />
+        </section>
+      )}
+
+      <section className="card-glass w-full p-6 text-center">
+        <div className="text-[10px] uppercase tracking-[0.25em] text-stone-500">
           PvP Battle
         </div>
-        <h2 className="font-serif text-3xl font-extrabold italic tracking-tight mt-1">
-          Stake. Solve. Win.
+        <h2 className="display text-4xl font-black italic tracking-tight mt-2 leading-[0.95]">
+          Stake.
+          <br />
+          Solve. Win.
         </h2>
         <button
           onClick={() => setShowCreate(true)}
-          className="btn-primary w-full mt-4"
+          className="btn-primary w-full mt-5"
         >
           Create lobby
         </button>
@@ -93,7 +121,7 @@ export default function PvpSheet() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-serif font-bold tabular-nums text-lg">
+                      <div className="display font-black italic tabular-nums text-lg">
                         {l.amount_per_player} {l.token_symbol}
                       </div>
                       <div className="text-[10px] text-stone-500">per player</div>
@@ -114,6 +142,37 @@ export default function PvpSheet() {
   );
 }
 
+function Mini({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: number | string;
+  accent?: "emerald" | "rose" | "amber";
+}) {
+  const cls =
+    accent === "emerald"
+      ? "text-emerald-700"
+      : accent === "rose"
+        ? "text-rose-700"
+        : accent === "amber"
+          ? "text-amber-700"
+          : "";
+  return (
+    <div>
+      <div className="text-[9px] uppercase tracking-wider text-stone-500">
+        {label}
+      </div>
+      <div
+        className={`display text-xl font-black italic tabular-nums leading-none mt-0.5 ${cls}`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
 function RulesSheet({ onClose }: { onClose: () => void }) {
   return (
     <div
@@ -126,7 +185,7 @@ function RulesSheet({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="w-10 h-1.5 bg-stone-300 rounded-full mx-auto mb-4" />
-        <h2 className="font-serif text-2xl font-extrabold italic tracking-tight">
+        <h2 className="display text-3xl font-black italic tracking-tight">
           PvP Rules
         </h2>
         <ol className="mt-4 space-y-3 text-sm text-stone-700">

@@ -1,6 +1,20 @@
 import type { Metadata, Viewport } from "next";
+import { Fraunces, Inter } from "next/font/google";
 import Providers from "@/components/Providers";
 import "./globals.css";
+
+const display = Fraunces({
+  variable: "--font-display",
+  subsets: ["latin"],
+  display: "swap",
+  axes: ["SOFT", "opsz"],
+});
+
+const sans = Inter({
+  variable: "--font-sans",
+  subsets: ["latin"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Quicker",
@@ -22,7 +36,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
+    <html
+      lang="en"
+      className={`${display.variable} ${sans.variable} h-full antialiased`}
+    >
       <body className="min-h-full flex flex-col bg-stone-200 text-stone-900 select-none">
         <Providers>{children}</Providers>
       </body>

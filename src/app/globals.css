@@ -1,12 +1,21 @@
 @import "tailwindcss";
 
+@theme inline {
+  --font-sans:
+    var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, sans-serif;
+  --font-serif:
+    var(--font-display), "Iowan Old Style", Georgia, serif;
+}
+
 @layer base {
   html,
   body {
     height: 100%;
     color: #0c0a09;
     font-family:
-      ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      var(--font-sans), ui-sans-serif, system-ui, -apple-system,
+      "Segoe UI", Roboto, sans-serif;
     -webkit-tap-highlight-color: transparent;
     -webkit-font-smoothing: antialiased;
   }
@@ -54,10 +63,10 @@
   }
 
   .card-glass {
-    background: rgba(255, 255, 255, 0.65);
+    background: rgba(255, 255, 255, 0.7);
     backdrop-filter: blur(20px) saturate(160%);
     -webkit-backdrop-filter: blur(20px) saturate(160%);
-    border: 1px solid rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.85);
     border-radius: 18px;
     box-shadow:
       0 1px 0 rgba(255, 255, 255, 0.9) inset,
@@ -81,6 +90,7 @@
     transition:
       transform 80ms ease,
       box-shadow 200ms ease;
+    letter-spacing: -0.01em;
   }
   .btn-primary:hover:not(:disabled) {
     box-shadow:
@@ -130,6 +140,14 @@
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+  }
+
+  /* Display utility — variable Fraunces with editorial italic and tighter
+   * tracking for headlines and big numbers. */
+  .display {
+    font-family: var(--font-display), Georgia, serif;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    letter-spacing: -0.02em;
   }
 }
 
