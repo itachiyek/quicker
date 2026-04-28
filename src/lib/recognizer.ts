@@ -3,7 +3,7 @@
 import * as tf from "@tensorflow/tfjs";
 
 const BUNDLED_MODEL_URL = "/mnist-model/model.json";
-const CACHE_KEY = "indexeddb://brain-trainer-mnist-v3";
+const CACHE_KEY = "indexeddb://brain-trainer-mnist-v4";
 
 type ProgressCb = (msg: string, pct?: number) => void;
 
