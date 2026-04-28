@@ -8,6 +8,7 @@ import WalletBar from "./WalletBar";
 import Leaderboard from "./Leaderboard";
 import BuyPanel from "./BuyRoundButton";
 import ContestCard from "./ContestCard";
+import CreateLobbySheet from "./CreateLobbySheet";
 import { useSession } from "@/hooks/useSession";
 import { usePlayStatus } from "@/hooks/usePlayStatus";
 
@@ -84,6 +85,7 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
   const [progress, setProgress] = useState(0);
   const [startError, setStartError] = useState<string | null>(null);
   const [showRules, setShowRules] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
   const { wallet } = useSession();
   const stats = useStats(wallet);
   const { status, refresh: refreshStatus } = usePlayStatus(!!wallet);
@@ -248,12 +250,15 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
               Stake. Solve. Win.
             </h2>
             <div className="grid grid-cols-2 gap-2 mt-4">
-              <Link href="/battles" className="btn-primary">
+              <button
+                onClick={() => setShowCreate(true)}
+                className="btn-primary"
+              >
                 Create lobby
-              </Link>
+              </button>
               <Link
                 href="/battles"
-                className="rounded-xl border border-stone-300 bg-white py-3 px-4 font-semibold text-stone-900 hover:bg-stone-50"
+                className="rounded-xl border border-stone-300 bg-white py-3 px-4 font-semibold text-stone-900 hover:bg-stone-50 inline-flex items-center justify-center"
               >
                 Browse
               </Link>
@@ -334,6 +339,7 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
       )}
 
       {showRules && <RulesSheet onClose={() => setShowRules(false)} />}
+      {showCreate && <CreateLobbySheet onClose={() => setShowCreate(false)} />}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/hooks/useSession";
+import CreateLobbySheet from "@/components/CreateLobbySheet";
 
 type Lobby = {
   id: string;
@@ -15,18 +16,11 @@ type Lobby = {
   created_at: string;
 };
 
-const SYMBOL_OPTIONS: ("WLD" | "USDC")[] = ["WLD", "USDC"];
-const QUICK_AMOUNTS = [0.05, 0.5, 1, 5];
-
 export default function BattlesPage() {
   const router = useRouter();
   const { wallet, loading } = useSession();
   const [lobbies, setLobbies] = useState<Lobby[]>([]);
   const [showCreate, setShowCreate] = useState(false);
-  const [token, setToken] = useState<"WLD" | "USDC">("WLD");
-  const [amount, setAmount] = useState<string>("0.05");
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !wallet) router.replace("/login");
@@ -39,33 +33,6 @@ export default function BattlesPage() {
       .then((d: { lobbies?: Lobby[] }) => setLobbies(d.lobbies ?? []))
       .catch(() => {});
   }, [wallet]);
-
-  const onCreate = async () => {
-    setCreateError(null);
-    const amt = Number(amount);
-    if (!Number.isFinite(amt) || amt < 0.05) {
-      setCreateError("Minimum stake is 0.05");
-      return;
-    }
-    setCreating(true);
-    try {
-      const r = await fetch("/api/lobby/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tokenSymbol: token, amount: amt }),
-      });
-      if (!r.ok) {
-        const d = await r.json().catch(() => ({}));
-        throw new Error(d.error ?? `HTTP ${r.status}`);
-      }
-      const d = (await r.json()) as { id: string };
-      router.push(`/battles/${d.id}`);
-    } catch (e) {
-      setCreateError(e instanceof Error ? e.message : "Create failed");
-    } finally {
-      setCreating(false);
-    }
-  };
 
   return (
     <main className="flex-1 flex flex-col items-center max-w-md w-full mx-auto px-4 pt-5 pb-10 gap-4">
@@ -88,70 +55,12 @@ export default function BattlesPage() {
         <h1 className="font-serif text-3xl font-extrabold italic tracking-tight mt-1">
           Stake. Solve. Win.
         </h1>
-        <p className="text-stone-600 text-sm mt-2">
-          Create a lobby, play your 60s round, then wait for someone to
-          challenge your score. Winner takes the pool.
-        </p>
         <button
-          onClick={() => setShowCreate((s) => !s)}
+          onClick={() => setShowCreate(true)}
           className="btn-primary w-full mt-4"
         >
-          {showCreate ? "Cancel" : "Create lobby"}
+          Create lobby
         </button>
-
-        {showCreate && (
-          <div className="mt-4 text-left">
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              {SYMBOL_OPTIONS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setToken(s)}
-                  className={`rounded-xl border py-2 font-semibold ${
-                    token === s
-                      ? "bg-stone-900 text-white border-stone-900"
-                      : "bg-white text-stone-700 border-stone-300"
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-            <label className="text-[10px] uppercase tracking-wider text-stone-500">
-              Stake per player
-            </label>
-            <input
-              inputMode="decimal"
-              value={amount}
-              onChange={(e) =>
-                setAmount(e.target.value.replace(/[^0-9.]/g, ""))
-              }
-              className="w-full mt-1 px-4 py-3 rounded-xl border border-stone-300 bg-white text-2xl font-serif tabular-nums"
-            />
-            <div className="grid grid-cols-4 gap-2 mt-2">
-              {QUICK_AMOUNTS.map((a) => (
-                <button
-                  key={a}
-                  onClick={() => setAmount(String(a))}
-                  className="chip !text-sm"
-                >
-                  {a}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={onCreate}
-              disabled={creating}
-              className="btn-primary w-full mt-4"
-            >
-              {creating ? "Creating…" : `Create ${amount} ${token} lobby`}
-            </button>
-            {createError && (
-              <p className="mt-2 text-xs text-rose-700 text-center">
-                {createError}
-              </p>
-            )}
-          </div>
-        )}
       </section>
 
       <section className="w-full">
@@ -202,6 +111,8 @@ export default function BattlesPage() {
           </ol>
         )}
       </section>
+
+      {showCreate && <CreateLobbySheet onClose={() => setShowCreate(false)} />}
     </main>
   );
 }
