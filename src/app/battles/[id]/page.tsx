@@ -7,7 +7,11 @@ import { parseUnits } from "viem";
 import BattleGameScreen, {
   type BattleAnswer,
 } from "@/components/BattleGameScreen";
-import { sendErc20Transfer, isInWorldApp } from "@/lib/worldDeposit";
+import {
+  sendErc20Transfer,
+  claimFromEscrow,
+  isInWorldApp,
+} from "@/lib/worldDeposit";
 import { useSession } from "@/hooks/useSession";
 
 type Lobby = {
@@ -310,29 +314,12 @@ export default function LobbyPage({
         )}
 
         {lobby.status === "resolved" && (
-          <div className="text-center">
-            {lobby.is_tie ? (
-              <div className="text-amber-700 font-semibold">
-                Tie — pool split
-              </div>
-            ) : lobby.winner_wallet?.toLowerCase() === me ? (
-              <div className="text-emerald-700 font-bold text-lg">
-                You won {winnerShare.toFixed(2)} {lobby.token_symbol}
-              </div>
-            ) : (
-              <div className="text-stone-600">
-                {lobby.winner_wallet
-                  ? `${lobby.winner_wallet.slice(0, 6)}…${lobby.winner_wallet.slice(-4)} won`
-                  : "Resolved"}
-              </div>
-            )}
-            <Link
-              href="/history"
-              className="block mt-3 text-xs text-stone-500 hover:text-stone-900"
-            >
-              View match history →
-            </Link>
-          </div>
+          <ResolvedView
+            lobby={lobby}
+            me={me}
+            escrow={escrow}
+            winnerShare={winnerShare}
+          />
         )}
 
         {!isInWorldApp() &&
@@ -357,6 +344,90 @@ export default function LobbyPage({
         ← Back to PvP
       </Link>
     </main>
+  );
+}
+
+function ResolvedView({
+  lobby,
+  me,
+  escrow,
+  winnerShare,
+}: {
+  lobby: Lobby;
+  me: string;
+  escrow: string | null;
+  winnerShare: number;
+}) {
+  const [claiming, setClaiming] = useState(false);
+  const [claimed, setClaimed] = useState(false);
+  const [claimError, setClaimError] = useState<string | null>(null);
+
+  const isWinner = lobby.winner_wallet?.toLowerCase() === me;
+  const isTie = lobby.is_tie;
+  const myShare = isTie ? winnerShare / 2 : isWinner ? winnerShare : 0;
+  const canClaim = (isWinner || isTie) && myShare > 0;
+
+  const onClaim = async () => {
+    setClaimError(null);
+    if (!escrow) {
+      setClaimError("Escrow not configured");
+      return;
+    }
+    setClaiming(true);
+    const r = await claimFromEscrow({
+      escrow: escrow as `0x${string}`,
+      token: lobby.token_address as `0x${string}`,
+    });
+    if (!r.ok) setClaimError(r.reason);
+    else setClaimed(true);
+    setClaiming(false);
+  };
+
+  return (
+    <div className="text-center">
+      {isTie ? (
+        <div className="text-amber-700 font-semibold">
+          Tie — pool split, you get {myShare.toFixed(2)} {lobby.token_symbol}
+        </div>
+      ) : isWinner ? (
+        <div className="text-emerald-700 font-bold text-lg">
+          You won {winnerShare.toFixed(2)} {lobby.token_symbol}
+        </div>
+      ) : (
+        <div className="text-stone-600">
+          {lobby.winner_wallet
+            ? `${lobby.winner_wallet.slice(0, 6)}…${lobby.winner_wallet.slice(-4)} won`
+            : "Resolved"}
+        </div>
+      )}
+
+      {canClaim && (
+        <>
+          <button
+            onClick={onClaim}
+            disabled={claiming || claimed}
+            className="btn-primary w-full mt-4"
+          >
+            {claimed
+              ? "Claimed ✓"
+              : claiming
+                ? "Confirm in World App…"
+                : `Claim ${myShare.toFixed(2)} ${lobby.token_symbol}`}
+          </button>
+          {!claimed && (
+            <p className="mt-2 text-[11px] text-stone-500">
+              Sends a claim() tx — your full {lobby.token_symbol} balance on
+              the escrow drains in one go.
+            </p>
+          )}
+          {claimError && (
+            <p className="mt-2 text-xs text-rose-700 break-words">
+              {claimError}
+            </p>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 

@@ -1,9 +1,13 @@
 "use client";
 
-import { encodeFunctionData, erc20Abi } from "viem";
+import { encodeFunctionData, erc20Abi, parseAbi } from "viem";
 import { MiniKit } from "@worldcoin/minikit-js";
 
 const WORLD_CHAIN_ID = 480;
+
+const ESCROW_CLAIM_ABI = parseAbi([
+  "function claim(address token) external",
+]);
 
 export function isInWorldApp(): boolean {
   if (typeof window === "undefined") return false;
@@ -41,6 +45,77 @@ async function resolveUserOp(userOpHash: string): Promise<string> {
     await new Promise((r) => setTimeout(r, 2500));
   }
   throw new Error("Timed out waiting for confirmation");
+}
+
+async function sendTx(
+  to: `0x${string}`,
+  data: `0x${string}`,
+): Promise<DepositResult> {
+  if (!isInWorldApp()) {
+    return { ok: false, reason: "Open inside World App to confirm" };
+  }
+  const mk = MiniKit as unknown as {
+    sendTransaction: (opts: {
+      chainId: number;
+      transactions: Array<{
+        to: `0x${string}`;
+        data: `0x${string}`;
+        value?: `0x${string}`;
+      }>;
+    }) => Promise<
+      | {
+          executedWith?: "minikit" | "wagmi" | "fallback";
+          data?: { userOpHash?: string };
+          finalPayload?: {
+            status?: string;
+            error_code?: string;
+            transaction_id?: string;
+            transaction_hash?: string;
+          };
+        }
+      | undefined
+    >;
+  };
+  let result;
+  try {
+    result = await mk.sendTransaction({
+      chainId: WORLD_CHAIN_ID,
+      transactions: [{ to, data }],
+    });
+  } catch (e) {
+    return { ok: false, reason: e instanceof Error ? e.message : "Send failed" };
+  }
+  const userOpHash =
+    result?.data?.userOpHash ?? result?.finalPayload?.transaction_id;
+  if (!userOpHash) {
+    return {
+      ok: false,
+      reason: result?.finalPayload?.error_code ?? "Transaction cancelled",
+    };
+  }
+  try {
+    const txHash = await resolveUserOp(userOpHash);
+    return { ok: true, txHash: txHash as `0x${string}` };
+  } catch (e) {
+    return {
+      ok: false,
+      reason: e instanceof Error ? e.message : "Confirmation timed out",
+    };
+  }
+}
+
+/** Call escrow.claim(token) to withdraw the caller's accumulated balance
+ *  for that token. */
+export async function claimFromEscrow(opts: {
+  escrow: `0x${string}`;
+  token: `0x${string}`;
+}): Promise<DepositResult> {
+  const data = encodeFunctionData({
+    abi: ESCROW_CLAIM_ABI,
+    functionName: "claim",
+    args: [opts.token],
+  });
+  return sendTx(opts.escrow, data);
 }
 
 /** Send an ERC-20 transfer from inside World App and return the on-chain
