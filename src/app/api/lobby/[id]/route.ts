@@ -22,12 +22,21 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Hide opponent's equations_json after a player has played to discourage
-  // peeking — actually both play the SAME equations, so revealing them only
-  // matters between deposit and play. We keep it simple: anyone can see them
-  // since both players need them to play.
+  // Hide the creator's score from anyone who isn't the creator until the
+  // challenger has finished their round (or the lobby is resolved). Without
+  // this the challenger could peek at the target before playing.
+  const me = session.wallet?.toLowerCase() ?? null;
+  const isCreator =
+    me !== null && me === data.creator_wallet.toLowerCase();
+  const challengerFinished = data.challenger_score !== null;
+  const isResolved = data.status === "resolved";
+  const lobby = { ...data };
+  if (!isCreator && !challengerFinished && !isResolved) {
+    lobby.creator_score = null;
+  }
+
   return NextResponse.json({
-    lobby: data,
+    lobby,
     me: session.wallet ?? null,
   });
 }

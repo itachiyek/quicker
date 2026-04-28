@@ -15,10 +15,12 @@ export async function GET(req: NextRequest) {
   const sort = url.searchParams.get("sort") ?? "newest";
   // ^ "newest" | "stake_desc" | "stake_asc"
 
+  // Don't return creator_score — challengers shouldn't see the target before
+  // they commit to play.
   let q = sb
     .from("quicker_lobbies")
     .select(
-      "id, creator_wallet, token_symbol, amount_per_player, creator_score, fee_percent, created_at",
+      "id, creator_wallet, token_symbol, amount_per_player, fee_percent, created_at",
       { count: "exact" },
     )
     .eq("status", "open");

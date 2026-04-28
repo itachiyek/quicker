@@ -1,18 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useSession } from "@/hooks/useSession";
 import CreateLobbySheet from "./CreateLobbySheet";
 import RulesSheet from "./RulesSheet";
 import HistorySheet from "./HistorySheet";
+import LobbySheet from "./LobbySheet";
+import SortSheet, { SortIcon, type SortValue } from "./SortSheet";
 
 type Lobby = {
   id: string;
   creator_wallet: string;
   token_symbol: "WLD" | "USDC";
   amount_per_player: number;
-  creator_score: number | null;
   created_at: string;
 };
 
@@ -32,12 +32,11 @@ type PvpStats = {
 };
 
 type TokenFilter = "all" | "WLD" | "USDC";
-type Sort = "newest" | "stake_desc" | "stake_asc";
 
-const SORT_LABEL: Record<Sort, string> = {
+const SORT_LABEL: Record<SortValue, string> = {
   newest: "Newest",
-  stake_desc: "Stake ↓",
-  stake_asc: "Stake ↑",
+  stake_desc: "Highest stake",
+  stake_asc: "Lowest stake",
 };
 
 export default function PvpSheet() {
@@ -47,11 +46,13 @@ export default function PvpSheet() {
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [tokenFilter, setTokenFilter] = useState<TokenFilter>("all");
-  const [sort, setSort] = useState<Sort>("newest");
+  const [sort, setSort] = useState<SortValue>("newest");
   const [stats, setStats] = useState<PvpStats | null>(null);
   const [showRules, setShowRules] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [showSort, setShowSort] = useState(false);
+  const [openLobbyId, setOpenLobbyId] = useState<string | null>(null);
 
   const requestId = useRef(0);
 
@@ -96,10 +97,6 @@ export default function PvpSheet() {
       .catch(() => {});
   }, [wallet]);
 
-  const cycleSort = () => {
-    const order: Sort[] = ["newest", "stake_desc", "stake_asc"];
-    setSort(order[(order.indexOf(sort) + 1) % order.length]);
-  };
 
   return (
     <div className="flex flex-col gap-4 pb-4">
@@ -176,10 +173,11 @@ export default function PvpSheet() {
             USDC
           </FilterChip>
           <button
-            onClick={cycleSort}
-            className="ml-auto chip !text-xs"
-            aria-label="Toggle sort"
+            onClick={() => setShowSort(true)}
+            className="ml-auto chip !text-xs inline-flex items-center gap-1.5"
+            aria-label="Sort options"
           >
+            <SortIcon size={12} />
             {SORT_LABEL[sort]}
           </button>
         </div>
@@ -197,19 +195,18 @@ export default function PvpSheet() {
                   l.creator_wallet.toLowerCase() === wallet?.toLowerCase();
                 return (
                   <li key={l.id}>
-                    <Link
-                      href={`/battles/${l.id}`}
-                      className="flex items-center gap-3 px-3 py-3 hover:bg-stone-50"
+                    <button
+                      onClick={() => setOpenLobbyId(l.id)}
+                      className="w-full flex items-center gap-3 px-3 py-3 hover:bg-stone-50 text-left"
                     >
                       <div className="flex-1 min-w-0">
                         <div className="font-mono text-sm text-stone-800 truncate">
                           {me ? "you" : short}
                         </div>
                         <div className="text-[11px] text-stone-500">
-                          Score to beat:{" "}
-                          <span className="font-bold tabular-nums">
-                            {l.creator_score ?? "?"}
-                          </span>
+                          {me
+                            ? "Your lobby — waiting"
+                            : "Beat the creator's score"}
                         </div>
                       </div>
                       <div className="text-right">
@@ -220,7 +217,7 @@ export default function PvpSheet() {
                           per player
                         </div>
                       </div>
-                    </Link>
+                    </button>
                   </li>
                 );
               })}
@@ -240,6 +237,22 @@ export default function PvpSheet() {
 
       <RulesSheet open={showRules} onClose={() => setShowRules(false)} />
       <HistorySheet open={showHistory} onClose={() => setShowHistory(false)} />
+      <LobbySheet
+        open={openLobbyId !== null}
+        lobbyId={openLobbyId}
+        onClose={() => {
+          setOpenLobbyId(null);
+          // refresh the list when coming back so any newly-resolved lobby
+          // disappears from "open"
+          fetchLobbies(0, true);
+        }}
+      />
+      <SortSheet
+        open={showSort}
+        value={sort}
+        onPick={setSort}
+        onClose={() => setShowSort(false)}
+      />
       {showCreate && (
         <CreateLobbySheet onClose={() => setShowCreate(false)} />
       )}
