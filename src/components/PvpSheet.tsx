@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "@/hooks/useSession";
 import CreateLobbySheet from "./CreateLobbySheet";
@@ -16,6 +16,13 @@ type Lobby = {
   created_at: string;
 };
 
+type ListResp = {
+  lobbies: Lobby[];
+  total: number;
+  hasMore: boolean;
+  pageSize: number;
+};
+
 type PvpStats = {
   played: number;
   won: number;
@@ -24,20 +31,62 @@ type PvpStats = {
   open: number;
 };
 
+type TokenFilter = "all" | "WLD" | "USDC";
+type Sort = "newest" | "stake_desc" | "stake_asc";
+
+const SORT_LABEL: Record<Sort, string> = {
+  newest: "Newest",
+  stake_desc: "Stake ↓",
+  stake_asc: "Stake ↑",
+};
+
 export default function PvpSheet() {
   const { wallet } = useSession();
   const [lobbies, setLobbies] = useState<Lobby[]>([]);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [tokenFilter, setTokenFilter] = useState<TokenFilter>("all");
+  const [sort, setSort] = useState<Sort>("newest");
   const [stats, setStats] = useState<PvpStats | null>(null);
   const [showRules, setShowRules] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
 
+  const requestId = useRef(0);
+
+  const fetchLobbies = useCallback(
+    async (offset: number, reset: boolean) => {
+      const id = ++requestId.current;
+      setLoading(true);
+      const params = new URLSearchParams();
+      params.set("offset", String(offset));
+      if (tokenFilter !== "all") params.set("token", tokenFilter);
+      params.set("sort", sort);
+      try {
+        const r = await fetch(`/api/lobby/list?${params}`, {
+          cache: "no-store",
+        });
+        if (id !== requestId.current) return; // stale
+        const d = (await r.json()) as ListResp;
+        setLobbies((prev) => (reset ? d.lobbies : [...prev, ...d.lobbies]));
+        setTotal(d.total ?? 0);
+        setHasMore(!!d.hasMore);
+      } catch {
+        if (id === requestId.current) {
+          setHasMore(false);
+        }
+      } finally {
+        if (id === requestId.current) setLoading(false);
+      }
+    },
+    [tokenFilter, sort],
+  );
+
+  // Initial + filter/sort change resets the list and refetches.
   useEffect(() => {
-    fetch("/api/lobby/list", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d: { lobbies?: Lobby[] }) => setLobbies(d.lobbies ?? []))
-      .catch(() => {});
-  }, []);
+    fetchLobbies(0, true);
+  }, [fetchLobbies]);
 
   useEffect(() => {
     if (!wallet) return;
@@ -46,6 +95,11 @@ export default function PvpSheet() {
       .then(setStats)
       .catch(() => {});
   }, [wallet]);
+
+  const cycleSort = () => {
+    const order: Sort[] = ["newest", "stake_desc", "stake_asc"];
+    setSort(order[(order.indexOf(sort) + 1) % order.length]);
+  };
 
   return (
     <div className="flex flex-col gap-4 pb-4">
@@ -95,45 +149,92 @@ export default function PvpSheet() {
           <h3 className="text-xs font-semibold text-stone-700 uppercase tracking-wider">
             Open lobbies
           </h3>
-          <span className="text-xs text-stone-500">{lobbies.length}</span>
+          <span className="text-xs text-stone-500 tabular-nums">
+            {lobbies.length}
+            {total > lobbies.length ? ` of ${total}` : ""}
+          </span>
         </div>
+
+        {/* Filter + sort */}
+        <div className="flex items-center gap-2 mb-2">
+          <FilterChip
+            active={tokenFilter === "all"}
+            onClick={() => setTokenFilter("all")}
+          >
+            All
+          </FilterChip>
+          <FilterChip
+            active={tokenFilter === "WLD"}
+            onClick={() => setTokenFilter("WLD")}
+          >
+            WLD
+          </FilterChip>
+          <FilterChip
+            active={tokenFilter === "USDC"}
+            onClick={() => setTokenFilter("USDC")}
+          >
+            USDC
+          </FilterChip>
+          <button
+            onClick={cycleSort}
+            className="ml-auto chip !text-xs"
+            aria-label="Toggle sort"
+          >
+            {SORT_LABEL[sort]}
+          </button>
+        </div>
+
         {lobbies.length === 0 ? (
           <div className="panel text-sm text-stone-500 text-center p-5">
-            No open lobbies. Be the first.
+            {loading ? "Loading…" : "No open lobbies. Be the first."}
           </div>
         ) : (
-          <ol className="panel divide-y divide-stone-200 overflow-hidden">
-            {lobbies.map((l) => {
-              const short = `${l.creator_wallet.slice(0, 6)}…${l.creator_wallet.slice(-4)}`;
-              const me = l.creator_wallet.toLowerCase() === wallet?.toLowerCase();
-              return (
-                <li key={l.id}>
-                  <Link
-                    href={`/battles/${l.id}`}
-                    className="flex items-center gap-3 px-3 py-3 hover:bg-stone-50"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="font-mono text-sm text-stone-800 truncate">
-                        {me ? "you" : short}
+          <>
+            <ol className="panel divide-y divide-stone-200 overflow-hidden">
+              {lobbies.map((l) => {
+                const short = `${l.creator_wallet.slice(0, 6)}…${l.creator_wallet.slice(-4)}`;
+                const me =
+                  l.creator_wallet.toLowerCase() === wallet?.toLowerCase();
+                return (
+                  <li key={l.id}>
+                    <Link
+                      href={`/battles/${l.id}`}
+                      className="flex items-center gap-3 px-3 py-3 hover:bg-stone-50"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="font-mono text-sm text-stone-800 truncate">
+                          {me ? "you" : short}
+                        </div>
+                        <div className="text-[11px] text-stone-500">
+                          Score to beat:{" "}
+                          <span className="font-bold tabular-nums">
+                            {l.creator_score ?? "?"}
+                          </span>
+                        </div>
                       </div>
-                      <div className="text-[11px] text-stone-500">
-                        Score to beat:{" "}
-                        <span className="font-bold tabular-nums">
-                          {l.creator_score ?? "?"}
-                        </span>
+                      <div className="text-right">
+                        <div className="display font-black italic tabular-nums text-lg">
+                          {l.amount_per_player} {l.token_symbol}
+                        </div>
+                        <div className="text-[10px] text-stone-500">
+                          per player
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="display font-black italic tabular-nums text-lg">
-                        {l.amount_per_player} {l.token_symbol}
-                      </div>
-                      <div className="text-[10px] text-stone-500">per player</div>
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
-          </ol>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ol>
+            {hasMore && (
+              <button
+                onClick={() => fetchLobbies(lobbies.length, false)}
+                disabled={loading}
+                className="mt-3 w-full rounded-xl border border-stone-300 bg-white py-3 px-4 font-semibold text-stone-900 hover:bg-stone-50 disabled:opacity-50"
+              >
+                {loading ? "Loading…" : "See more"}
+              </button>
+            )}
+          </>
         )}
       </section>
 
@@ -143,6 +244,29 @@ export default function PvpSheet() {
         <CreateLobbySheet onClose={() => setShowCreate(false)} />
       )}
     </div>
+  );
+}
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+        active
+          ? "bg-stone-900 text-white"
+          : "bg-white text-stone-600 border border-stone-300 hover:bg-stone-50"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
