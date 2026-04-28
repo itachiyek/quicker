@@ -12,8 +12,8 @@ const mnist = require("mnist");
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = join(__dirname, "..", "public", "mnist-model");
 
-const TRAIN_PER_CLASS = 950;
-const TEST_PER_CLASS = 50;
+const TRAIN_PER_CLASS = 980;
+const TEST_PER_CLASS = 20;
 const TRAIN_TOTAL = TRAIN_PER_CLASS * 10;
 const TEST_TOTAL = TEST_PER_CLASS * 10;
 
@@ -38,17 +38,18 @@ function toTensors(samples) {
 const { x: trainX, y: trainY } = toTensors(set.training);
 const { x: testX, y: testY } = toTensors(set.test);
 
-// Larger MLP — wider hidden layers to push accuracy without the cost
-// of conv layers in pure-JS tfjs (which is too slow for CNNs in Node
-// without the native backend).
+// Wider + deeper MLP. Pure-JS tfjs is too slow for full CNNs; the
+// extra width + dropout closes most of the gap on MNIST-style input.
 const model = tf.sequential();
 model.add(
-  tf.layers.dense({ inputShape: [784], units: 256, activation: "relu" }),
+  tf.layers.dense({ inputShape: [784], units: 384, activation: "relu" }),
 );
+model.add(tf.layers.dropout({ rate: 0.3 }));
+model.add(tf.layers.dense({ units: 192, activation: "relu" }));
 model.add(tf.layers.dropout({ rate: 0.25 }));
-model.add(tf.layers.dense({ units: 128, activation: "relu" }));
+model.add(tf.layers.dense({ units: 96, activation: "relu" }));
 model.add(tf.layers.dropout({ rate: 0.2 }));
-model.add(tf.layers.dense({ units: 64, activation: "relu" }));
+model.add(tf.layers.dense({ units: 48, activation: "relu" }));
 model.add(tf.layers.dense({ units: 10, activation: "softmax" }));
 
 model.compile({
@@ -58,7 +59,7 @@ model.compile({
 });
 
 console.log("Training...");
-const EPOCHS = 20;
+const EPOCHS = 35;
 await model.fit(trainX, trainY, {
   epochs: EPOCHS,
   batchSize: 64,

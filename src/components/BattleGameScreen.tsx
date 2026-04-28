@@ -164,8 +164,12 @@ export default function BattleGameScreen({
       drawn_answer: drawnNumber,
       is_correct: false,
     });
+    lockRef.current = true;
     if (feedbackTimer.current) window.clearTimeout(feedbackTimer.current);
-    feedbackTimer.current = window.setTimeout(() => setFeedback(null), 600);
+    feedbackTimer.current = window.setTimeout(() => {
+      setFeedback(null);
+      lockRef.current = false;
+    }, 600);
   }, [model, advance, eq]);
 
   const onStrokeEnd = useCallback(() => {

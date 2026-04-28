@@ -71,6 +71,11 @@ const DrawCanvas = forwardRef<DrawCanvasHandle, Props>(function DrawCanvas(
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.restore();
+    // Drop any in-flight stroke too. If clear() runs while the pen is still
+    // down, we don't want pointermove to keep drawing from the stale lastPos
+    // — the user has to lift and re-tap to start again.
+    drawingRef.current = false;
+    lastPosRef.current = null;
     dirtyRef.current = false;
   }, []);
 

@@ -152,8 +152,14 @@ export default function GameScreen({
     setFeedback({ kind: "wrong", value: drawn });
     setStreak((s) => Math.max(0, s - 1));
     setStreakAnim({ key: Date.now() });
+    // Brief input lockout so a stroke that was in progress when we cleared
+    // can't immediately re-trigger another recognize cycle.
+    lockRef.current = true;
     if (feedbackTimer.current) window.clearTimeout(feedbackTimer.current);
-    feedbackTimer.current = window.setTimeout(() => setFeedback(null), 600);
+    feedbackTimer.current = window.setTimeout(() => {
+      setFeedback(null);
+      lockRef.current = false;
+    }, 600);
   }, [model, advance]);
 
   const onStrokeEnd = useCallback(() => {
