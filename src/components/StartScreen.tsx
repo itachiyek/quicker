@@ -6,60 +6,25 @@ import WalletBar from "./WalletBar";
 import SideSheet from "./SideSheet";
 import SoloSheet from "./SoloSheet";
 import PvpSheet from "./PvpSheet";
-import ContestSheet from "./ContestSheet";
 
-type ContestResp = {
-  contest: {
-    name: string;
-    ends_at: string;
-    ended: boolean;
-  } | null;
-  pool_wld: number;
-};
-
-function useContest() {
-  const [data, setData] = useState<ContestResp | null>(null);
-  useEffect(() => {
-    fetch("/api/contest/weekly", { cache: "no-store" })
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => {});
-  }, []);
-  return data;
-}
-
-type Mode = null | "solo" | "pvp" | "contest";
+type Mode = null | "solo" | "pvp";
 
 export default function StartScreen({ onStart }: { onStart: () => void }) {
   const [mode, setMode] = useState<Mode>(null);
-  const contest = useContest();
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // Allow other pages to deep-link back into a specific sheet via ?mode=pvp
-  // (e.g. the lobby detail page's "Back to PvP" button).
+  // Allow other pages to deep-link back into a specific sheet via ?mode=pvp.
   useEffect(() => {
     const m = searchParams.get("mode");
-    if (m === "pvp" || m === "solo" || m === "contest") {
+    if (m === "pvp" || m === "solo") {
       setMode(m);
       router.replace("/", { scroll: false });
     }
   }, [searchParams, router]);
 
-  const open = (m: "solo" | "pvp" | "contest") => setMode(m);
+  const open = (m: "solo" | "pvp") => setMode(m);
   const close = () => setMode(null);
-
-  const contestEnded = contest?.contest?.ended === true;
-  const contestRemaining = (() => {
-    if (!contest?.contest || contestEnded) return null;
-    const ms = new Date(contest.contest.ends_at).getTime() - Date.now();
-    if (ms <= 0) return null;
-    const d = Math.floor(ms / 86_400_000);
-    const h = Math.floor((ms % 86_400_000) / 3_600_000);
-    if (d > 0) return `${d}d ${h}h`;
-    const m = Math.floor((ms % 3_600_000) / 60_000);
-    return `${h}h ${m}m`;
-  })();
 
   return (
     <>
@@ -97,35 +62,6 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
           />
         </div>
 
-        {/* Weekly contest hint */}
-        <button
-          onClick={() => open("contest")}
-          className="card-glass w-full p-3 mt-4 flex items-center gap-3 hover:bg-white/85 transition-colors text-left"
-        >
-          <span className="w-9 h-9 rounded-xl bg-stone-900 text-amber-200 flex items-center justify-center text-base shrink-0">
-            🏆
-          </span>
-          <div className="flex-1 min-w-0">
-            <div className="text-[10px] uppercase tracking-wider text-stone-500">
-              {contest?.contest?.name ?? "Weekly Contest"}
-            </div>
-            <div className="text-xs text-stone-700 leading-snug">
-              Top 10 split{" "}
-              <span className="display font-extrabold italic tabular-nums">
-                {contest?.pool_wld ?? 200} WLD
-              </span>
-              {contestRemaining && (
-                <span className="text-stone-500"> · {contestRemaining} left</span>
-              )}
-              {contestEnded && (
-                <span className="text-stone-500"> · ended</span>
-              )}
-            </div>
-          </div>
-          <span className="text-stone-400 text-lg shrink-0" aria-hidden>
-            →
-          </span>
-        </button>
       </div>
 
       <SideSheet open={mode === "solo"} onClose={close} title="Solo">
@@ -134,7 +70,6 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
       <SideSheet open={mode === "pvp"} onClose={close} title="PvP">
         <PvpSheet />
       </SideSheet>
-      <ContestSheet open={mode === "contest"} onClose={close} />
     </>
   );
 }
