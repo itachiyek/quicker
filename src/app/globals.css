@@ -150,6 +150,13 @@
     letter-spacing: -0.025em;
     font-variation-settings: "opsz" 96, "wdth" 100;
   }
+
+  /* Handwritten digit guide — Caveat looks like rounded marker writing,
+   * close enough to MNIST-style strokes for the rules sheet examples. */
+  .handwriting {
+    font-family: var(--font-hand), "Patrick Hand", cursive;
+    font-weight: 700;
+  }
 }
 
 [data-rk] {

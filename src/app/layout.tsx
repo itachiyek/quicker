@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Bricolage_Grotesque, Inter } from "next/font/google";
+import { Bricolage_Grotesque, Caveat, Inter } from "next/font/google";
 import Providers from "@/components/Providers";
 import "./globals.css";
 
@@ -13,6 +13,13 @@ const display = Bricolage_Grotesque({
 const sans = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
+  display: "swap",
+});
+
+const hand = Caveat({
+  variable: "--font-hand",
+  subsets: ["latin"],
+  weight: ["700"],
   display: "swap",
 });
 
@@ -38,7 +45,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${display.variable} ${sans.variable} h-full antialiased`}
+      className={`${display.variable} ${sans.variable} ${hand.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-stone-200 text-stone-900 select-none">
         <Providers>{children}</Providers>
