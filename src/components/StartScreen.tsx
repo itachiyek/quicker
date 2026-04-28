@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import WalletBar from "./WalletBar";
 import SideSheet from "./SideSheet";
 import SoloSheet from "./SoloSheet";
@@ -32,6 +33,19 @@ type Mode = null | "solo" | "pvp";
 export default function StartScreen({ onStart }: { onStart: () => void }) {
   const [mode, setMode] = useState<Mode>(null);
   const contest = useContest();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Allow other pages to deep-link back into a specific sheet via ?mode=pvp
+  // (e.g. the lobby detail page's "Back to PvP" button).
+  useEffect(() => {
+    const m = searchParams.get("mode");
+    if (m === "pvp" || m === "solo") {
+      setMode(m);
+      // Drop the query param so refresh doesn't re-open it.
+      router.replace("/", { scroll: false });
+    }
+  }, [searchParams, router]);
 
   const open = (m: "solo" | "pvp") => setMode(m);
   const close = () => setMode(null);

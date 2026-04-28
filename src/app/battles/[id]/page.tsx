@@ -85,8 +85,37 @@ export default function LobbyPage({
 
   if (!lobby) {
     return (
-      <main className="flex-1 flex items-center justify-center text-sm text-stone-500">
-        Loading lobby…
+      <main className="flex-1 flex flex-col items-center max-w-md w-full mx-auto px-4 pt-5 pb-10 gap-4">
+        <header className="w-full flex items-center justify-between">
+          <Link
+            href="/?mode=pvp"
+            className="text-sm text-stone-600 hover:text-stone-900"
+          >
+            ← PvP
+          </Link>
+          <span className="text-sm font-serif italic font-extrabold tracking-tight">
+            Quicker
+          </span>
+          <span className="w-12" />
+        </header>
+
+        <div className="card-glass w-full p-5 text-center">
+          <div className="h-3 w-20 mx-auto rounded-full bg-stone-200 animate-pulse" />
+          <div className="h-10 w-40 mx-auto rounded-md bg-stone-200 animate-pulse mt-3" />
+          <div className="h-3 w-48 mx-auto rounded-full bg-stone-200 animate-pulse mt-3" />
+        </div>
+
+        <div className="card-glass w-full p-5">
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="rounded-xl bg-stone-100 h-24 animate-pulse" />
+            <div className="rounded-xl bg-stone-100 h-24 animate-pulse" />
+          </div>
+          <div className="h-12 w-full rounded-xl bg-stone-200 animate-pulse" />
+        </div>
+
+        <p className="text-[11px] text-stone-400 text-center mt-2">
+          Loading lobby…
+        </p>
       </main>
     );
   }
@@ -192,8 +221,11 @@ export default function LobbyPage({
   return (
     <main className="flex-1 flex flex-col items-center max-w-md w-full mx-auto px-4 pt-5 pb-10 gap-4">
       <header className="w-full flex items-center justify-between">
-        <Link href="/battles" className="text-sm text-stone-600 hover:text-stone-900">
-          ← Battles
+        <Link
+          href="/?mode=pvp"
+          className="text-sm text-stone-600 hover:text-stone-900"
+        >
+          ← PvP
         </Link>
         <span className="text-sm font-serif italic font-extrabold tracking-tight">
           Quicker
@@ -317,6 +349,13 @@ export default function LobbyPage({
           </p>
         )}
       </section>
+
+      <Link
+        href="/?mode=pvp"
+        className="rounded-xl border border-stone-300 bg-white py-3 px-4 font-semibold text-stone-900 hover:bg-stone-50 inline-flex items-center justify-center w-full"
+      >
+        ← Back to PvP
+      </Link>
     </main>
   );
 }
