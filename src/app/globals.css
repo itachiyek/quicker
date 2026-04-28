@@ -142,12 +142,13 @@
     color: transparent;
   }
 
-  /* Display utility — variable Fraunces with editorial italic and tighter
-   * tracking for headlines and big numbers. */
+  /* Display utility — Bricolage Grotesque, modern variable grotesque
+   * with optical sizing. Used for headlines and big numbers. */
   .display {
-    font-family: var(--font-display), Georgia, serif;
-    font-variation-settings: "opsz" 144, "SOFT" 50;
-    letter-spacing: -0.02em;
+    font-family: var(--font-display), system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    font-variation-settings: "opsz" 96, "wdth" 100;
   }
 }
 
