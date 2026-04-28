@@ -7,6 +7,7 @@ import RulesSheet from "./RulesSheet";
 import HistorySheet from "./HistorySheet";
 import LobbySheet from "./LobbySheet";
 import SortSheet, { SortIcon, type SortValue } from "./SortSheet";
+import UnclaimedCard from "./UnclaimedCard";
 
 type Lobby = {
   id: string;
@@ -140,6 +141,8 @@ export default function PvpSheet() {
           </button>
         </div>
       </section>
+
+      <UnclaimedCard />
 
       <section className="w-full">
         <div className="flex items-baseline justify-between px-1 mb-2">
