@@ -120,15 +120,11 @@ export default function SoloSheet({ onStart }: { onStart: () => void }) {
               <span className="chip">
                 {status.freeRemaining}/{status.freeCap} free
               </span>
-              <span
-                className={`chip ${
-                  status.paidCredits > 0
-                    ? "!text-amber-700 !border-amber-300 !bg-amber-50"
-                    : ""
-                }`}
-              >
-                {status.paidCredits} credits
-              </span>
+              {status.paidCredits > 0 && (
+                <span className="chip !text-amber-700 !border-amber-300 !bg-amber-50">
+                  {status.paidCredits} credits
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -160,13 +156,26 @@ export default function SoloSheet({ onStart }: { onStart: () => void }) {
             />
           </div>
         )}
-
-        {status && (
-          <div className="pt-3 border-t border-stone-200/70">
-            <BuyPanel status={status} onPurchased={refreshStatus} />
-          </div>
-        )}
       </section>
+
+      {/* Top-up only appears when both the free quota and paid credits are
+       *  exhausted. Promoted to its own card so it's actually visible. */}
+      {status && status.canPlay === false && (
+        <section className="card-glass w-full p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-9 h-9 rounded-xl bg-stone-900 text-amber-200 flex items-center justify-center text-base shrink-0">
+              ⚡
+            </span>
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-stone-500">
+                Out of free rounds
+              </div>
+              <div className="text-sm font-semibold">Top up to keep playing</div>
+            </div>
+          </div>
+          <BuyPanel status={status} onPurchased={refreshStatus} />
+        </section>
+      )}
 
       <ContestCard />
 

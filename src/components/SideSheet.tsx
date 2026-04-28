@@ -26,7 +26,7 @@ export default function SideSheet({
   return (
     <div
       aria-hidden={!open}
-      className={`fixed inset-0 z-30 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+      className={`fixed inset-0 z-30 transition-transform duration-[520ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${
         open ? "translate-x-0" : "translate-x-full pointer-events-none"
       }`}
     >
