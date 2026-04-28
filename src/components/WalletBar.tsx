@@ -80,11 +80,17 @@ async function signInWithMiniKit(nonce: string) {
 export type WalletBarProps = {
   /** When true, render only the address chip + sign-out, no big sign-in button */
   compact?: boolean;
+  /** When true, render the sign-in button at full width with hero sizing */
+  large?: boolean;
   /** Called once a wallet has been connected AND signed in */
   onSignedIn?: (wallet: string) => void;
 };
 
-export default function WalletBar({ compact = false, onSignedIn }: WalletBarProps) {
+export default function WalletBar({
+  compact = false,
+  large = false,
+  onSignedIn,
+}: WalletBarProps) {
   const { wallet, refresh, logout } = useSession();
   const { address, isConnected, chainId } = useAccount();
   const { signMessageAsync } = useSignMessage();
@@ -210,6 +216,29 @@ export default function WalletBar({ compact = false, onSignedIn }: WalletBarProp
           >
             Sign out
           </button>
+        )}
+      </div>
+    );
+  }
+
+  if (large) {
+    return (
+      <div className="w-full flex flex-col items-stretch gap-2">
+        <button
+          onClick={handleClick}
+          disabled={busy}
+          className="btn-primary w-full text-base py-4"
+        >
+          {busy
+            ? "Signing in…"
+            : inWorldApp
+              ? "Sign in with World"
+              : "Sign in with Wallet"}
+        </button>
+        {error && (
+          <span className="text-xs text-rose-700 text-center break-words">
+            {error}
+          </span>
         )}
       </div>
     );

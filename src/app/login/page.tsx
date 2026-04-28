@@ -10,37 +10,22 @@ export default function LoginPage() {
   const router = useRouter();
   const { wallet } = useSession();
 
-  // Once a session shows up, hop to the home page. We don't gate on
-  // `loading` here so the page never shows a blank/splash state — the
-  // login UI is fine to render while we're still waiting on /me.
   useEffect(() => {
     if (wallet) router.replace("/");
   }, [wallet, router]);
 
-  // Hide the login UI for the brief moment between session appearing and the
-  // navigation actually happening, so signed-in users don't see a flash.
   if (wallet) return <main className="flex-1" />;
 
   return (
-    <main className="flex-1 flex flex-col items-center justify-center px-5 pb-8 max-w-md w-full mx-auto">
+    <main className="flex-1 flex flex-col items-center justify-center px-6 pb-10 max-w-md w-full mx-auto">
       <div className="text-stone-900">
-        <LogoWordmark height={120} />
+        <LogoWordmark height={140} />
       </div>
-      <p className="mt-2 text-stone-600 text-sm">60-second mental math.</p>
+      <p className="mt-3 text-stone-600 text-base">60-second mental math.</p>
 
-      <section className="card-glass w-full p-6 mt-8">
-        <WalletBar />
-        <div className="mt-5 pt-5 border-t border-stone-200/70 flex items-center justify-center gap-3 text-[11px] text-stone-500">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            Non-custodial
-          </span>
-          <span className="text-stone-300">·</span>
-          <span>No email</span>
-          <span className="text-stone-300">·</span>
-          <span>Free to play</span>
-        </div>
-      </section>
+      <div className="w-full mt-12">
+        <WalletBar large />
+      </div>
     </main>
   );
 }

@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import WalletBar from "./WalletBar";
 import SideSheet from "./SideSheet";
 import SoloSheet from "./SoloSheet";
 import PvpSheet from "./PvpSheet";
+import ContestSheet from "./ContestSheet";
 
 type ContestResp = {
   contest: {
@@ -28,7 +28,7 @@ function useContest() {
   return data;
 }
 
-type Mode = null | "solo" | "pvp";
+type Mode = null | "solo" | "pvp" | "contest";
 
 export default function StartScreen({ onStart }: { onStart: () => void }) {
   const [mode, setMode] = useState<Mode>(null);
@@ -40,14 +40,13 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
   // (e.g. the lobby detail page's "Back to PvP" button).
   useEffect(() => {
     const m = searchParams.get("mode");
-    if (m === "pvp" || m === "solo") {
+    if (m === "pvp" || m === "solo" || m === "contest") {
       setMode(m);
-      // Drop the query param so refresh doesn't re-open it.
       router.replace("/", { scroll: false });
     }
   }, [searchParams, router]);
 
-  const open = (m: "solo" | "pvp") => setMode(m);
+  const open = (m: "solo" | "pvp" | "contest") => setMode(m);
   const close = () => setMode(null);
 
   const contestEnded = contest?.contest?.ended === true;
@@ -99,9 +98,9 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
         </div>
 
         {/* Weekly contest hint */}
-        <Link
-          href="/contest"
-          className="card-glass w-full p-3 mt-4 flex items-center gap-3 hover:bg-white/85 transition-colors"
+        <button
+          onClick={() => open("contest")}
+          className="card-glass w-full p-3 mt-4 flex items-center gap-3 hover:bg-white/85 transition-colors text-left"
         >
           <span className="w-9 h-9 rounded-xl bg-stone-900 text-amber-200 flex items-center justify-center text-base shrink-0">
             🏆
@@ -126,7 +125,7 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
           <span className="text-stone-400 text-lg shrink-0" aria-hidden>
             →
           </span>
-        </Link>
+        </button>
       </div>
 
       <SideSheet open={mode === "solo"} onClose={close} title="Solo">
@@ -135,6 +134,7 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
       <SideSheet open={mode === "pvp"} onClose={close} title="PvP">
         <PvpSheet />
       </SideSheet>
+      <ContestSheet open={mode === "contest"} onClose={close} />
     </>
   );
 }
