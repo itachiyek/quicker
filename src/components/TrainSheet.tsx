@@ -81,15 +81,16 @@ export default function TrainSheet({
     }, 800);
   }, [activeDigit]);
 
-  // Auto-advance digit once we have enough samples for it.
+  // Auto-advance digit once we have enough samples for it. When the LAST
+  // digit fills up there's no next, so we just leave activeDigit where it
+  // is and the parent JSX swaps the canvas card for the "All samples
+  // collected" CTA.
   useEffect(() => {
     if (collectedForActive < SAMPLES_PER_DIGIT) return;
-    // Find next digit with fewer than SAMPLES_PER_DIGIT samples.
     const next = DIGITS.find(
       (d) => (samples[d]?.length ?? 0) < SAMPLES_PER_DIGIT,
     );
     if (next !== undefined && next !== activeDigit) {
-      // Tiny delay so user sees the thumbnail land first.
       const t = window.setTimeout(() => setActiveDigit(next), 350);
       return () => window.clearTimeout(t);
     }
@@ -174,19 +175,42 @@ export default function TrainSheet({
               </div>
             </section>
 
-            <section className="card-glass w-full p-4">
-              <div className="text-center mb-2">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
-                  Sample {collectedForActive + 1} of {SAMPLES_PER_DIGIT}
+            {allDone ? (
+              <section className="card-glass w-full p-6 text-center">
+                <span className="inline-flex w-12 h-12 rounded-full bg-emerald-600 text-white items-center justify-center text-2xl mb-3">
+                  ✓
+                </span>
+                <h3 className="display text-2xl font-black italic tracking-tight">
+                  All samples collected
+                </h3>
+                <p className="text-sm text-stone-600 mt-1.5">
+                  Tap below to fine-tune the model with your handwriting.
+                  Takes about 10 seconds.
+                </p>
+                <button
+                  onClick={train}
+                  className="btn-primary w-full mt-5"
+                >
+                  Train my AI →
+                </button>
+              </section>
+            ) : (
+              <section className="card-glass w-full p-4">
+                <div className="text-center mb-2">
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
+                    Sample{" "}
+                    {Math.min(collectedForActive + 1, SAMPLES_PER_DIGIT)} of{" "}
+                    {SAMPLES_PER_DIGIT}
+                  </div>
+                  <div className="display text-5xl font-black italic mt-1">
+                    Write {activeDigit}
+                  </div>
                 </div>
-                <div className="display text-5xl font-black italic mt-1">
-                  Write {activeDigit}
+                <div className="aspect-square">
+                  <DrawCanvas ref={canvasRef} onStrokeEnd={onStrokeEnd} />
                 </div>
-              </div>
-              <div className="aspect-square">
-                <DrawCanvas ref={canvasRef} onStrokeEnd={onStrokeEnd} />
-              </div>
-            </section>
+              </section>
+            )}
 
             <section className="w-full">
               <div className="text-[10px] uppercase tracking-wider text-stone-500 mb-2 px-1">
@@ -240,15 +264,12 @@ export default function TrainSheet({
               )}
             </section>
 
-            <button
-              onClick={train}
-              disabled={!allDone}
-              className="btn-primary w-full disabled:opacity-40"
-            >
-              {allDone
-                ? "Train my AI →"
-                : `Need ${totalTarget - totalCollected} more samples`}
-            </button>
+            {!allDone && (
+              <p className="text-[11px] text-stone-500 text-center">
+                {totalTarget - totalCollected} more sample
+                {totalTarget - totalCollected === 1 ? "" : "s"} to go
+              </p>
+            )}
 
             {hasPersonal && (
               <button
