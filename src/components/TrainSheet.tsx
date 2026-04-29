@@ -82,9 +82,7 @@ export default function TrainSheet({
   }, [activeDigit]);
 
   // Auto-advance digit once we have enough samples for it. When the LAST
-  // digit fills up there's no next, so we just leave activeDigit where it
-  // is and the parent JSX swaps the canvas card for the "All samples
-  // collected" CTA.
+  // digit fills up, kick off training automatically — no extra tap needed.
   useEffect(() => {
     if (collectedForActive < SAMPLES_PER_DIGIT) return;
     const next = DIGITS.find(
@@ -94,7 +92,17 @@ export default function TrainSheet({
       const t = window.setTimeout(() => setActiveDigit(next), 350);
       return () => window.clearTimeout(t);
     }
-  }, [samples, collectedForActive, activeDigit]);
+    // No next digit → all 30 samples are in. Jump straight into training so
+    // the user never sees the intermediate "all collected" card flash.
+    if (
+      next === undefined &&
+      totalCollected >= totalTarget &&
+      phase === "collect"
+    ) {
+      train();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [samples, collectedForActive, activeDigit, totalCollected, phase]);
 
   const removeSample = (digit: number, idx: number) => {
     setSamples((prev) => {
@@ -143,11 +151,15 @@ export default function TrainSheet({
   };
 
   const allDone = totalCollected >= totalTarget;
+  // While the auto-train kick-off is mid-flight (samples just filled up but
+  // setPhase("training") hasn't committed yet) we render the training card
+  // preemptively to avoid a one-frame flash of the intermediate state.
+  const showTraining = phase === "training" || (allDone && !error);
 
   return (
     <SideSheet open={open} onClose={onClose} title="Train AI">
       <div className="flex flex-col gap-4 pb-4">
-        {phase === "collect" && (
+        {phase === "collect" && !showTraining && (
           <>
             <section className="card-glass w-full p-5">
               <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
@@ -175,27 +187,7 @@ export default function TrainSheet({
               </div>
             </section>
 
-            {allDone ? (
-              <section className="card-glass w-full p-6 text-center">
-                <span className="inline-flex w-12 h-12 rounded-full bg-emerald-600 text-white items-center justify-center text-2xl mb-3">
-                  ✓
-                </span>
-                <h3 className="display text-2xl font-black italic tracking-tight">
-                  All samples collected
-                </h3>
-                <p className="text-sm text-stone-600 mt-1.5">
-                  Tap below to fine-tune the model with your handwriting.
-                  Takes about 10 seconds.
-                </p>
-                <button
-                  onClick={train}
-                  className="btn-primary w-full mt-5"
-                >
-                  Train my AI →
-                </button>
-              </section>
-            ) : (
-              <section className="card-glass w-full p-4">
+            <section className="card-glass w-full p-4">
                 <div className="text-center mb-2">
                   <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
                     Sample{" "}
@@ -210,7 +202,6 @@ export default function TrainSheet({
                   <DrawCanvas ref={canvasRef} onStrokeEnd={onStrokeEnd} />
                 </div>
               </section>
-            )}
 
             <section className="w-full">
               <div className="text-[10px] uppercase tracking-wider text-stone-500 mb-2 px-1">
@@ -285,7 +276,7 @@ export default function TrainSheet({
           </>
         )}
 
-        {phase === "training" && (
+        {showTraining && phase !== "done" && (
           <section className="card-glass w-full p-6 text-center">
             <h2 className="display text-3xl font-black italic tracking-tight">
               Training…
