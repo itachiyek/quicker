@@ -53,7 +53,24 @@
       "Bash(curl -sS -o /dev/null -w \"GET /api/auth/me %{http_code} %{time_total}s\\\\n\" https://quicker-one.vercel.app/api/auth/me)",
       "Bash(curl -sS -o /dev/null -w 'GET __TRACKED_VAR__ %{http_code} %{time_total}s\\\\n' https://quicker-one.vercel.app__TRACKED_VAR__)",
       "Bash(curl -sS https://quicker-one.vercel.app/api/lobby/escrow)",
-      "Bash(awk '{print $2}')"
+      "Bash(awk '{print $2}')",
+      "mcp__Claude_Preview__preview_start",
+      "mcp__a9726d8d-bf26-4b48-8767-f3fc766986fa__list_deployments",
+      "Bash(curl -sS -o /dev/null -w \"%{http_code} %{time_total}s\\\\n\" https://quicker-one.vercel.app/)",
+      "Bash(curl -sS https://quicker-one.vercel.app/ -o /tmp/quicker.html)",
+      "Read(//tmp/**)",
+      "Bash(grep -oE '.{0,30}each digit.{0,30}' /tmp/qchunks/c1.js)",
+      "Bash(grep -oE '.{0,30}Train your AI.{0,30}|.{0,30}Draw each digit.{0,30}' /tmp/qchunks/c1.js)",
+      "Bash(grep -oE '.{0,30}All samples collected.{0,40}' /tmp/qchunks/c1.js)",
+      "Bash(curl -sS -H \"Cache-Control: no-cache\" -H \"Pragma: no-cache\" https://quicker-one.vercel.app/ -o /tmp/quicker.html)",
+      "Bash(curl -sS 'https://quicker-one.vercel.app/?cb=__TRACKED_VAR__' -I)",
+      "Bash(curl -sS \"https://quicker-git-main-itachiyeks-projects.vercel.app/\" -I)",
+      "Bash(gh api *)",
+      "Bash(git fetch *)",
+      "Bash(npx --no-install tsc --noEmit -p tsconfig.json)",
+      "Bash(npx --no-install next lint)",
+      "Bash(npx --no-install eslint src/components/TrainSheet.tsx)",
+      "mcp__a9726d8d-bf26-4b48-8767-f3fc766986fa__list_teams"
     ]
   }
 }
