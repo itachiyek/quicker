@@ -158,21 +158,15 @@ export default function TrainSheet({
 
   return (
     <SideSheet open={open} onClose={onClose} title="Train AI">
-      <div className="flex flex-col gap-4 pb-4">
+      <div className="h-full flex flex-col gap-2.5 pb-2">
         {phase === "collect" && !showTraining && (
           <>
-            <section className="card-glass w-full p-5">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
-                Train your AI
-              </div>
-              <h2 className="display text-3xl font-black italic tracking-tight mt-1">
-                Draw each digit 3 times.
-              </h2>
-              <p className="text-sm text-stone-600 mt-2 leading-snug">
-                The classifier will learn your handwriting style. Stays on
-                this device — never sent to a server.
-              </p>
-              <div className="mt-3 h-1.5 bg-stone-200 rounded-full overflow-hidden">
+            {/* Slim progress strip — replaces the bulky intro card. */}
+            <div className="card-glass w-full px-3 py-2 flex items-center gap-3">
+              <span className="text-[10px] uppercase tracking-[0.18em] text-stone-500 whitespace-nowrap">
+                3 × each digit
+              </span>
+              <div className="flex-1 h-1.5 bg-stone-200 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-emerald-500 transition-[width] duration-300"
                   style={{
@@ -182,94 +176,100 @@ export default function TrainSheet({
                   }}
                 />
               </div>
-              <div className="mt-1 text-[11px] text-stone-500 text-right tabular-nums">
-                {totalCollected} / {totalTarget}
-              </div>
-            </section>
+              <span className="text-[11px] text-stone-500 tabular-nums whitespace-nowrap">
+                {totalCollected}/{totalTarget}
+              </span>
+            </div>
 
-            <section className="card-glass w-full p-4">
-                <div className="text-center mb-2">
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
-                    Sample{" "}
-                    {Math.min(collectedForActive + 1, SAMPLES_PER_DIGIT)} of{" "}
-                    {SAMPLES_PER_DIGIT}
-                  </div>
-                  <div className="display text-5xl font-black italic mt-1">
-                    Write {activeDigit}
-                  </div>
+            {/* Canvas fills the remaining vertical space. */}
+            <section className="card-glass w-full p-3 flex-1 min-h-0 flex flex-col">
+              <div className="flex items-center justify-between mb-2 px-1">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-stone-500">
+                  Sample{" "}
+                  {Math.min(collectedForActive + 1, SAMPLES_PER_DIGIT)}/
+                  {SAMPLES_PER_DIGIT}
                 </div>
-                <div className="aspect-square">
+                <div className="display text-3xl font-black italic leading-none">
+                  Write {activeDigit}
+                </div>
+                <div className="w-16" />
+              </div>
+              <div className="flex-1 min-h-0 flex items-center justify-center">
+                <div className="aspect-square h-full max-w-full">
                   <DrawCanvas ref={canvasRef} onStrokeEnd={onStrokeEnd} />
                 </div>
-              </section>
-
-            <section className="w-full">
-              <div className="text-[10px] uppercase tracking-wider text-stone-500 mb-2 px-1">
-                Your samples
               </div>
-              <div className="grid grid-cols-5 gap-2">
-                {DIGITS.map((d) => {
-                  const list = samples[d] ?? [];
-                  const isActive = d === activeDigit;
-                  return (
-                    <button
-                      key={d}
-                      onClick={() => setActiveDigit(d)}
-                      className={`paper relative aspect-square flex flex-col items-center justify-center transition ${
-                        isActive
-                          ? "ring-2 ring-stone-900"
-                          : "hover:bg-stone-50"
-                      }`}
-                    >
-                      <span className="display text-2xl font-black italic">
-                        {d}
-                      </span>
-                      <div className="absolute bottom-1 left-0 right-0 flex items-center justify-center gap-0.5">
-                        {Array.from({ length: SAMPLES_PER_DIGIT }).map(
-                          (_, i) => (
-                            <span
-                              key={i}
-                              className={`w-1.5 h-1.5 rounded-full ${
-                                i < list.length
-                                  ? "bg-emerald-500"
-                                  : "bg-stone-300"
-                              }`}
-                            />
-                          ),
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-              {collectedForActive > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {(samples[activeDigit] ?? []).map((s, i) => (
-                    <SampleThumb
-                      key={i}
-                      sample={s}
-                      onRemove={() => removeSample(activeDigit, i)}
-                    />
-                  ))}
-                </div>
-              )}
             </section>
 
-            {!allDone && (
-              <p className="text-[11px] text-stone-500 text-center">
-                {totalTarget - totalCollected} more sample
-                {totalTarget - totalCollected === 1 ? "" : "s"} to go
-              </p>
+            {/* 10-across digit picker — fits everything in one short row. */}
+            <div className="grid grid-cols-10 gap-1">
+              {DIGITS.map((d) => {
+                const list = samples[d] ?? [];
+                const isActive = d === activeDigit;
+                return (
+                  <button
+                    key={d}
+                    onClick={() => setActiveDigit(d)}
+                    className={`paper relative h-11 flex items-center justify-center transition ${
+                      isActive
+                        ? "ring-2 ring-stone-900"
+                        : "hover:bg-stone-50"
+                    }`}
+                  >
+                    <span className="display text-base font-black italic leading-none">
+                      {d}
+                    </span>
+                    <div className="absolute bottom-0.5 left-0 right-0 flex items-center justify-center gap-0.5">
+                      {Array.from({ length: SAMPLES_PER_DIGIT }).map((_, i) => (
+                        <span
+                          key={i}
+                          className={`w-1 h-1 rounded-full ${
+                            i < list.length
+                              ? "bg-emerald-500"
+                              : "bg-stone-300"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Compact thumbnail row, shown only when the active digit has
+             *  samples worth verifying / removing. */}
+            {collectedForActive > 0 && (
+              <div className="flex items-center gap-1.5 px-1">
+                <span className="text-[10px] text-stone-500 uppercase tracking-wider whitespace-nowrap">
+                  Yours
+                </span>
+                {(samples[activeDigit] ?? []).map((s, i) => (
+                  <SampleThumb
+                    key={i}
+                    sample={s}
+                    onRemove={() => removeSample(activeDigit, i)}
+                  />
+                ))}
+                {hasPersonal && (
+                  <button
+                    onClick={reset}
+                    className="ml-auto text-[11px] text-stone-500 hover:text-stone-900 underline"
+                  >
+                    Reset model
+                  </button>
+                )}
+              </div>
             )}
 
-            {hasPersonal && (
+            {collectedForActive === 0 && hasPersonal && (
               <button
                 onClick={reset}
-                className="btn-ghost w-full text-sm text-stone-600"
+                className="text-[11px] text-stone-500 hover:text-stone-900 underline self-end pr-1"
               >
-                Reset to default model
+                Reset model
               </button>
             )}
+
             {error && (
               <p className="text-xs text-rose-700 text-center">{error}</p>
             )}
@@ -371,7 +371,7 @@ function SampleThumb({
   return (
     <button
       onClick={onRemove}
-      className="relative w-12 h-12 rounded-md overflow-hidden border border-stone-300 hover:border-rose-500 group"
+      className="relative w-8 h-8 rounded-md overflow-hidden border border-stone-300 hover:border-rose-500 group"
       title="Remove sample"
     >
       <canvas ref={ref} width={28} height={28} className="w-full h-full" />
