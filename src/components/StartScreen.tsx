@@ -6,8 +6,9 @@ import WalletBar from "./WalletBar";
 import SideSheet from "./SideSheet";
 import SoloSheet from "./SoloSheet";
 import PvpSheet from "./PvpSheet";
+import TrainSheet from "./TrainSheet";
 
-type Mode = null | "solo" | "pvp";
+type Mode = null | "solo" | "pvp" | "train";
 
 export default function StartScreen({ onStart }: { onStart: () => void }) {
   const [mode, setMode] = useState<Mode>(null);
@@ -17,13 +18,13 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
   // Allow other pages to deep-link back into a specific sheet via ?mode=pvp.
   useEffect(() => {
     const m = searchParams.get("mode");
-    if (m === "pvp" || m === "solo") {
+    if (m === "pvp" || m === "solo" || m === "train") {
       setMode(m);
       router.replace("/", { scroll: false });
     }
   }, [searchParams, router]);
 
-  const open = (m: "solo" | "pvp") => setMode(m);
+  const open = (m: "solo" | "pvp" | "train") => setMode(m);
   const close = () => setMode(null);
 
   return (
@@ -60,6 +61,13 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
             tint="from-rose-100/70 to-rose-50/40"
             onClick={() => open("pvp")}
           />
+          <ModeCard
+            icon="🧠"
+            title="Train AI"
+            tagline="Teach the model your handwriting"
+            tint="from-sky-100/70 to-sky-50/40"
+            onClick={() => open("train")}
+          />
         </div>
 
       </div>
@@ -70,6 +78,7 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
       <SideSheet open={mode === "pvp"} onClose={close} title="PvP">
         <PvpSheet />
       </SideSheet>
+      <TrainSheet open={mode === "train"} onClose={close} />
     </>
   );
 }

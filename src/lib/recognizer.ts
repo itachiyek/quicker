@@ -4,6 +4,8 @@ import * as tf from "@tensorflow/tfjs";
 
 const BUNDLED_MODEL_URL = "/mnist-model/model.json";
 const CACHE_KEY = "indexeddb://brain-trainer-mnist-v4";
+/** Per-browser fine-tuned copy of the model with the user's own samples. */
+const PERSONAL_KEY = "indexeddb://quicker-mnist-personal";
 
 type ProgressCb = (msg: string, pct?: number) => void;
 
@@ -12,26 +14,126 @@ let modelPromise: Promise<tf.LayersModel> | null = null;
 export function loadModel(progress: ProgressCb = () => {}): Promise<tf.LayersModel> {
   if (modelPromise) return modelPromise;
   modelPromise = (async () => {
+    // 1) Prefer the personalised, fine-tuned copy.
+    try {
+      progress("Loading model…", 0.05);
+      const personal = await tf.loadLayersModel(PERSONAL_KEY);
+      progress("Ready", 1);
+      return personal;
+    } catch {
+      /* not personalised */
+    }
+    // 2) Fall back to the cached generic model.
     try {
       progress("Loading model…", 0.1);
       const cached = await tf.loadLayersModel(CACHE_KEY);
       progress("Ready", 1);
       return cached;
     } catch {
-      // not cached yet
+      /* not cached */
     }
+    // 3) First-time load from the bundled file.
     progress("Loading model…", 0.3);
     const model = await tf.loadLayersModel(BUNDLED_MODEL_URL);
     progress("Caching…", 0.85);
     try {
       await model.save(CACHE_KEY);
     } catch {
-      // non-fatal
+      /* non-fatal */
     }
     progress("Ready", 1);
     return model;
   })();
   return modelPromise;
+}
+
+/** Drop the in-memory + IndexedDB personal copy so the next loadModel() falls
+ *  back to the generic cached model. */
+export async function clearPersonalModel(): Promise<void> {
+  modelPromise = null;
+  try {
+    await tf.io.removeModel(PERSONAL_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Whether the user has ever fine-tuned their personal model. */
+export async function hasPersonalModel(): Promise<boolean> {
+  try {
+    const list = await tf.io.listModels();
+    return Object.prototype.hasOwnProperty.call(list, PERSONAL_KEY);
+  } catch {
+    return false;
+  }
+}
+
+/** Fine-tune a fresh copy of the generic model on the user's samples and
+ *  save it under the personal key. samples is a flat Float32Array of length
+ *  N*784, labels a Uint8Array of length N (digits 0..9). */
+export async function fineTunePersonal(opts: {
+  samples: Float32Array;
+  labels: Uint8Array;
+  epochs?: number;
+  onProgress?: (epoch: number, totalEpochs: number, loss: number) => void;
+}): Promise<{ epochs: number; finalLoss: number }> {
+  const { samples, labels, onProgress, epochs = 18 } = opts;
+  const N = labels.length;
+  if (N === 0) throw new Error("No training samples");
+
+  // Always start from the bundled or generic-cached model so re-training
+  // accumulates from the same baseline rather than from a previous personal
+  // fine-tune (avoids drift after multiple sessions).
+  let model: tf.LayersModel;
+  try {
+    model = await tf.loadLayersModel(CACHE_KEY);
+  } catch {
+    model = await tf.loadLayersModel(BUNDLED_MODEL_URL);
+    try {
+      await model.save(CACHE_KEY);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Build one-hot labels.
+  const ys = new Float32Array(N * 10);
+  for (let i = 0; i < N; i++) {
+    ys[i * 10 + labels[i]] = 1;
+  }
+  const xs = tf.tensor2d(samples, [N, 784]);
+  const ysT = tf.tensor2d(ys, [N, 10]);
+
+  // Use a small learning rate for fine-tuning so we don't blow away the
+  // pretrained weights.
+  model.compile({
+    optimizer: tf.train.adam(0.0004),
+    loss: "categoricalCrossentropy",
+    metrics: ["accuracy"],
+  });
+
+  let lastLoss = NaN;
+  await model.fit(xs, ysT, {
+    epochs,
+    batchSize: Math.min(8, N),
+    shuffle: true,
+    callbacks: {
+      onEpochEnd: (epoch, logs) => {
+        const l = (logs?.loss as number) ?? NaN;
+        lastLoss = l;
+        onProgress?.(epoch + 1, epochs, l);
+      },
+    },
+  });
+
+  xs.dispose();
+  ysT.dispose();
+
+  // Save and bust the in-memory cache so subsequent loadModel() picks up
+  // the personalised copy.
+  await model.save(PERSONAL_KEY);
+  modelPromise = null;
+  return { epochs, finalLoss: lastLoss };
 }
 
 type Region = { startX: number; endX: number; minY: number; maxY: number };
@@ -144,12 +246,14 @@ function findDigitRegions(canvas: HTMLCanvasElement): Region[] {
   );
 }
 
-// Build a [1, 784] tensor for one digit region using MNIST-style preprocessing
-// (longer side fits 20px box, center-of-mass at 14,14, white-on-black).
-function regionToTensor(
+// Build a [784] Float32 array for one digit region using MNIST-style
+// preprocessing (longer side fits 20px box, center-of-mass at 14,14,
+// white-on-black). Used both for inference (wrapped in a Tensor2D) and
+// for collecting training samples in the personalisation flow.
+function regionToFloat32(
   source: HTMLCanvasElement,
   region: Region,
-): tf.Tensor2D {
+): Float32Array {
   const bw = region.endX - region.startX + 1;
   const bh = region.maxY - region.minY + 1;
   const longSide = Math.max(bw, bh);
@@ -214,7 +318,25 @@ function regionToTensor(
     }
   }
 
-  return tf.tidy(() => tf.tensor2d(out, [1, 784]));
+  return out;
+}
+
+function regionToTensor(
+  source: HTMLCanvasElement,
+  region: Region,
+): tf.Tensor2D {
+  const arr = regionToFloat32(source, region);
+  return tf.tidy(() => tf.tensor2d(arr, [1, 784]));
+}
+
+/** Public: extract a 784-float MNIST-shaped sample of whatever the user
+ *  drew on the full canvas. Returns null if the canvas is empty. */
+export function canvasToTrainingSample(
+  canvas: HTMLCanvasElement,
+): Float32Array | null {
+  const region = ink_bbox_in_slice(canvas, 0, canvas.width);
+  if (!region) return null;
+  return regionToFloat32(canvas, region);
 }
 
 // Find the ink bounding box within a horizontal slice of the canvas.
