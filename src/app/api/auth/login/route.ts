@@ -18,6 +18,7 @@ type WagmiBody = {
   message: string;
   signature: `0x${string}`;
   address: string;
+  ref?: string;
 };
 
 type MiniKitBody = {
@@ -25,7 +26,11 @@ type MiniKitBody = {
   nonce: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload: any;
+  ref?: string;
 };
+
+const REFERRAL_CREDIT = 1;
+const WALLET_RE = /^0x[a-f0-9]{40}$/i;
 
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as WagmiBody | MiniKitBody;
@@ -93,12 +98,41 @@ export async function POST(req: NextRequest) {
 
   const sb = getSupabaseAdmin();
   if (sb) {
-    await sb
+    // Detect a brand-new player so we only credit a referrer once per signup.
+    const { data: existing } = await sb
       .from("quicker_players")
-      .upsert(
-        { wallet: wallet! },
-        { onConflict: "wallet", ignoreDuplicates: true },
-      );
+      .select("wallet")
+      .eq("wallet", wallet!)
+      .maybeSingle();
+
+    const rawRef = (body.ref ?? "").toLowerCase();
+    const referrer =
+      WALLET_RE.test(rawRef) && rawRef !== wallet!.toLowerCase()
+        ? rawRef
+        : null;
+
+    if (!existing) {
+      await sb
+        .from("quicker_players")
+        .insert({ wallet: wallet!, referred_by: referrer });
+
+      if (referrer) {
+        // Only credit if the referrer is a known player.
+        const { data: refRow } = await sb
+          .from("quicker_players")
+          .select("paid_credits")
+          .eq("wallet", referrer)
+          .maybeSingle();
+        if (refRow) {
+          const next =
+            ((refRow.paid_credits as number | undefined) ?? 0) + REFERRAL_CREDIT;
+          await sb
+            .from("quicker_players")
+            .update({ paid_credits: next })
+            .eq("wallet", referrer);
+        }
+      }
+    }
   }
   return NextResponse.json({ wallet });
 }

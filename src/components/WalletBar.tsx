@@ -5,6 +5,21 @@ import { useAccount, useDisconnect, useSignMessage } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { useSession } from "@/hooks/useSession";
+import { REF_STORAGE_KEY } from "@/lib/worldApp";
+
+function consumePendingRef(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const v = window.localStorage.getItem(REF_STORAGE_KEY);
+    if (v) {
+      window.localStorage.removeItem(REF_STORAGE_KEY);
+      return v;
+    }
+  } catch {
+    /* ignore */
+  }
+  return undefined;
+}
 
 function buildSiweMessage(opts: {
   domain: string;
@@ -72,7 +87,12 @@ async function signInWithMiniKit(nonce: string) {
   const res = await fetch("/api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ source: "minikit", payload, nonce }),
+    body: JSON.stringify({
+      source: "minikit",
+      payload,
+      nonce,
+      ref: consumePendingRef(),
+    }),
   });
   if (!res.ok) throw new Error(await res.text());
 }
@@ -130,6 +150,7 @@ export default function WalletBar({
           message,
           signature,
           address: addr,
+          ref: consumePendingRef(),
         }),
       });
       if (!res.ok) throw new Error(await res.text());

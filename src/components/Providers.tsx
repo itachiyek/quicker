@@ -8,6 +8,7 @@ import { wagmiConfig } from "@/lib/wagmi";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { SessionProvider } from "@/hooks/useSession";
 import { installUnlockListeners } from "@/lib/sounds";
+import { REF_STORAGE_KEY, isLikelyWallet } from "@/lib/worldApp";
 import "@rainbow-me/rainbowkit/styles.css";
 
 function ClientInit() {
@@ -22,6 +23,19 @@ function ClientInit() {
       /* ignore */
     }
     installUnlockListeners();
+
+    // Capture an inbound referral code so it survives the sign-in flow.
+    try {
+      const ref = new URLSearchParams(window.location.search).get("ref");
+      if (ref && isLikelyWallet(ref)) {
+        const existing = window.localStorage.getItem(REF_STORAGE_KEY);
+        if (!existing) {
+          window.localStorage.setItem(REF_STORAGE_KEY, ref.toLowerCase());
+        }
+      }
+    } catch {
+      /* ignore */
+    }
   }, []);
   return null;
 }

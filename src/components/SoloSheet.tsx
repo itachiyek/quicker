@@ -6,6 +6,7 @@ import { playStart, unlockAudio } from "@/lib/sounds";
 import Leaderboard from "./Leaderboard";
 import BuyPanel from "./BuyRoundButton";
 import ContestCard from "./ContestCard";
+import InviteCard from "./InviteCard";
 import { useSession } from "@/hooks/useSession";
 import { usePlayStatus } from "@/hooks/usePlayStatus";
 
@@ -177,6 +178,8 @@ export default function SoloSheet({ onStart }: { onStart: () => void }) {
           <BuyPanel status={status} onPurchased={refreshStatus} />
         </section>
       )}
+
+      {wallet && <InviteCard wallet={wallet} />}
 
       <ContestCard />
 
