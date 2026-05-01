@@ -14,7 +14,7 @@ export default function InviteCard({ wallet }: Props) {
 
   const url = buildInviteUrl(wallet);
   const text =
-    "Komm zu Quicker — 60 Sekunden Kopfrechnen mit Handschrift-Erkennung. Wir kriegen beide einen Bonus 🎁";
+    "Join me on Quicker — 60 seconds of mental math with handwriting recognition. We both get a bonus 🎁";
 
   const onShare = async () => {
     setBusy(true);
@@ -31,8 +31,8 @@ export default function InviteCard({ wallet }: Props) {
       const inWorldApp =
         typeof m.isInWorldApp === "function" ? !!m.isInWorldApp() : false;
       if (inWorldApp && typeof m.share === "function") {
-        await m.share({ title: "Spiel mit mir Quicker", text, url });
-        setFeedback("Geteilt — du bekommst 1 Credit pro Freund, der einsteigt.");
+        await m.share({ title: "Play Quicker with me", text, url });
+        setFeedback("Shared — you'll get 1 credit for every friend who joins.");
         return;
       }
       // Web fallback: native share, then clipboard.
@@ -41,16 +41,16 @@ export default function InviteCard({ wallet }: Props) {
           await (navigator as Navigator & {
             share: (data: { title?: string; text?: string; url?: string }) => Promise<void>;
           }).share({ title: "Quicker", text, url });
-          setFeedback("Link geteilt.");
+          setFeedback("Link shared.");
           return;
         } catch {
           /* fall through to clipboard */
         }
       }
       await navigator.clipboard.writeText(url);
-      setFeedback("Link kopiert.");
+      setFeedback("Link copied.");
     } catch (e) {
-      setFeedback(e instanceof Error ? e.message : "Konnte nicht teilen");
+      setFeedback(e instanceof Error ? e.message : "Couldn't share");
     } finally {
       setBusy(false);
     }
@@ -64,10 +64,10 @@ export default function InviteCard({ wallet }: Props) {
         </span>
         <div className="flex-1 min-w-0">
           <div className="text-[10px] uppercase tracking-wider text-stone-500">
-            Freunde einladen
+            Invite friends
           </div>
           <div className="text-sm font-semibold leading-snug">
-            +1 Solo-Credit pro Freund, der einsteigt
+            +1 Solo credit for every friend who joins
           </div>
         </div>
       </div>
@@ -76,7 +76,7 @@ export default function InviteCard({ wallet }: Props) {
         disabled={busy}
         className="btn-primary w-full text-sm"
       >
-        {busy ? "Teilen…" : "Einladungslink teilen"}
+        {busy ? "Sharing…" : "Share invite link"}
       </button>
       {feedback && (
         <p className="text-[11px] text-stone-600 text-center">{feedback}</p>

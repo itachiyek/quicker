@@ -156,8 +156,8 @@ export default function ContestPage() {
           })}
         </ol>
         <p className="mt-3 text-[11px] text-stone-500 text-center">
-          Best score in the contest window wins. Ties broken by who reached it
-          first.
+          Every Solo round&apos;s score adds to your weekly total — play more,
+          climb higher. Ties go to whoever started playing first.
         </p>
       </section>
     </main>
