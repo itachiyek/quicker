@@ -7,7 +7,7 @@ import { useSession } from "@/hooks/useSession";
 
 type Entry = {
   wallet: string;
-  best_score: number;
+  score: number;
   games_played: number;
   prize_wld: number;
 };
@@ -146,7 +146,7 @@ export default function ContestPage() {
                   {e ? `${e.wallet.slice(0, 6)}…${e.wallet.slice(-4)}` : "—"}
                 </span>
                 <span className="tabular-nums text-stone-700 font-semibold w-10 text-right">
-                  {e ? e.best_score : "·"}
+                  {e ? e.score : "·"}
                 </span>
                 <span className="tabular-nums text-amber-700 font-bold w-16 text-right">
                   {prize} WLD
