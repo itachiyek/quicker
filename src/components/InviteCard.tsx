@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MiniKit } from "@worldcoin/minikit-js";
-import { buildInviteUrl } from "@/lib/worldApp";
+import { shareInvite } from "@/lib/worldApp";
 
 type Props = {
   wallet: string;
@@ -12,43 +11,16 @@ export default function InviteCard({ wallet }: Props) {
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  const url = buildInviteUrl(wallet);
-  const text =
-    "Join me on Quicker — 60 seconds of mental math with handwriting recognition. We both get a bonus 🎁";
-
   const onShare = async () => {
     setBusy(true);
     setFeedback(null);
     try {
-      const m = MiniKit as unknown as {
-        isInWorldApp?: () => boolean;
-        share?: (opts: {
-          title?: string;
-          text?: string;
-          url?: string;
-        }) => Promise<unknown>;
-      };
-      const inWorldApp =
-        typeof m.isInWorldApp === "function" ? !!m.isInWorldApp() : false;
-      if (inWorldApp && typeof m.share === "function") {
-        await m.share({ title: "Play Quicker with me", text, url });
-        setFeedback("Shared — you'll get 1 credit for every friend who joins.");
-        return;
-      }
-      // Web fallback: native share, then clipboard.
-      if (typeof navigator !== "undefined" && "share" in navigator) {
-        try {
-          await (navigator as Navigator & {
-            share: (data: { title?: string; text?: string; url?: string }) => Promise<void>;
-          }).share({ title: "Quicker", text, url });
-          setFeedback("Link shared.");
-          return;
-        } catch {
-          /* fall through to clipboard */
-        }
-      }
-      await navigator.clipboard.writeText(url);
-      setFeedback("Link copied.");
+      const channel = await shareInvite(wallet);
+      setFeedback(
+        channel === "clipboard"
+          ? "Link copied — paste it anywhere."
+          : "Shared — you'll get 1 credit per friend who joins.",
+      );
     } catch (e) {
       setFeedback(e instanceof Error ? e.message : "Couldn't share");
     } finally {

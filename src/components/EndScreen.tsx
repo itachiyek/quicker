@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { playEnd } from "@/lib/sounds";
 import { useSession } from "@/hooks/useSession";
+import { shareInvite } from "@/lib/worldApp";
 
 type Props = {
   points: number;
@@ -28,6 +29,20 @@ export default function EndScreen({
 }: Props) {
   const { wallet } = useSession();
   const [submit, setSubmit] = useState<SubmitState>({ kind: "idle" });
+  const [inviteState, setInviteState] = useState<
+    "idle" | "sharing" | "shared" | "copied"
+  >("idle");
+
+  const onInvite = async () => {
+    if (!wallet) return;
+    setInviteState("sharing");
+    try {
+      const channel = await shareInvite(wallet);
+      setInviteState(channel === "clipboard" ? "copied" : "shared");
+    } catch {
+      setInviteState("idle");
+    }
+  };
 
   useEffect(() => {
     playEnd();
@@ -137,6 +152,22 @@ export default function EndScreen({
       >
         Continue →
       </button>
+
+      {wallet && (
+        <button
+          onClick={onInvite}
+          disabled={inviteState === "sharing"}
+          className="text-xs text-stone-600 hover:text-stone-900 underline underline-offset-4 -mt-2"
+        >
+          {inviteState === "sharing"
+            ? "Sharing…"
+            : inviteState === "shared"
+              ? "Shared ✓ — +1 credit per friend who joins"
+              : inviteState === "copied"
+                ? "Link copied ✓"
+                : "Invite a friend → +1 Solo credit"}
+        </button>
+      )}
     </main>
   );
 }

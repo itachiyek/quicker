@@ -118,7 +118,7 @@ export default function ContestPage() {
       </section>
 
       <section className="w-full">
-        <div className="flex items-baseline justify-between px-1 mb-2">
+        <div className="flex items-baseline justify-between px-1 mb-1">
           <h3 className="text-xs font-semibold text-stone-700 uppercase tracking-wider">
             {ended ? "Final standings" : "Standings"}
           </h3>
@@ -126,6 +126,9 @@ export default function ContestPage() {
             <span className="text-xs text-stone-500">Live</span>
           )}
         </div>
+        <p className="px-1 mb-2 text-[11px] text-stone-500">
+          Each Solo round adds to your weekly total.
+        </p>
         <ol className="panel divide-y divide-stone-200 overflow-hidden">
           {slots.map((e, i) => {
             const rank = i + 1;
@@ -156,8 +159,7 @@ export default function ContestPage() {
           })}
         </ol>
         <p className="mt-3 text-[11px] text-stone-500 text-center">
-          Every Solo round&apos;s score adds to your weekly total — play more,
-          climb higher. Ties go to whoever started playing first.
+          Ties go to whoever started playing first.
         </p>
       </section>
     </main>
