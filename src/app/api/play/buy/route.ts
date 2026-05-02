@@ -36,9 +36,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Backend not configured" }, { status: 503 });
   }
   const treasury = getTreasuryAddress();
-  if (!treasury) {
-    return NextResponse.json({ error: "Payments not configured" }, { status: 503 });
-  }
 
   const body = (await req.json()) as { txHash?: string; packageId?: number };
   const txHash = body.txHash;

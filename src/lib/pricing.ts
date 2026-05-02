@@ -1,14 +1,13 @@
 // WLD token contract on World Chain mainnet.
 export const WLD_TOKEN_ADDRESS = "0x2cFc85d8E48F8EAB294be644d9E25C3030863003";
 
-// Where players send WLD to buy a round. Set via env in production; we don't
-// want a hard-coded fallback because a typo would route real funds to the
-// wrong address.
-export function getTreasuryAddress(): string | null {
-  const addr = process.env.TREASURY_ADDRESS;
-  if (!addr) return null;
-  if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) return null;
-  return addr.toLowerCase();
+// Where players send WLD to buy a round. Hard-coded to avoid an env-var
+// misconfiguration silently breaking purchases.
+export const TREASURY_ADDRESS =
+  "0xdf83c19919e1fac0bd1b16952d101af177c7da3a";
+
+export function getTreasuryAddress(): string {
+  return TREASURY_ADDRESS;
 }
 
 // Cost of one round in USDC (used as the unit for legacy single-round buys).
