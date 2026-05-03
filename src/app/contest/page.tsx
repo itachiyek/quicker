@@ -63,10 +63,13 @@ export default function ContestPage() {
 
   useEffect(() => {
     if (!wallet) return;
-    fetch("/api/contest/weekly", { cache: "no-store" })
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => {});
+    // Reuse the sessionStorage cache (5 min) shared with ContestSheet/Card so
+    // hopping between pages doesn't trigger a fresh request each time.
+    import("@/lib/cache").then(({ fetchCached }) =>
+      fetchCached<Resp>("/api/contest/weekly", 5 * 60_000)
+        .then(setData)
+        .catch(() => {}),
+    );
   }, [wallet]);
 
   const remaining = useCountdown(

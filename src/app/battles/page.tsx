@@ -28,7 +28,9 @@ export default function BattlesPage() {
 
   useEffect(() => {
     if (!wallet) return;
-    fetch("/api/lobby/list", { cache: "no-store" })
+    // Honour the route's 30s public cache so navigating in/out doesn't
+    // refetch every time.
+    fetch("/api/lobby/list")
       .then((r) => r.json())
       .then((d: { lobbies?: Lobby[] }) => setLobbies(d.lobbies ?? []))
       .catch(() => {});

@@ -25,7 +25,7 @@ export default function Leaderboard({
     let cancelled = false;
     fetchCached<{ entries?: Entry[]; configured?: boolean }>(
       "/api/leaderboard",
-      60_000,
+      5 * 60_000,
     )
       .then((d) => {
         if (cancelled) return;

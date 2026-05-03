@@ -20,15 +20,23 @@ export default function UnclaimedCard() {
   );
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
-    if (!wallet) return;
-    try {
-      const r = await fetch("/api/me/unclaimed", { cache: "no-store" });
-      if (r.ok) setData(await r.json());
-    } catch {
-      /* ignore */
-    }
-  }, [wallet]);
+  const refresh = useCallback(
+    async (opts?: { force?: boolean }) => {
+      if (!wallet) return;
+      try {
+        // Honour the route's private 60s cache on regular mounts; only force
+        // a fresh on-chain read after a successful claim.
+        const r = await fetch(
+          "/api/me/unclaimed",
+          opts?.force ? { cache: "no-store" } : undefined,
+        );
+        if (r.ok) setData(await r.json());
+      } catch {
+        /* ignore */
+      }
+    },
+    [wallet],
+  );
 
   useEffect(() => {
     refresh();
@@ -43,7 +51,7 @@ export default function UnclaimedCard() {
       token: data.tokens[sym] as `0x${string}`,
     });
     if (!r.ok) setError(r.reason);
-    else await refresh();
+    else await refresh({ force: true });
     setClaimingToken(null);
   };
 

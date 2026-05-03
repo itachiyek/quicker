@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
-export const revalidate = 60;
+export const revalidate = 300;
+
+// Same response for every visitor — let the browser hold onto it for 5 min.
+const CACHE = "public, max-age=300, s-maxage=300, stale-while-revalidate=600";
 
 const FALLBACK_PAYOUTS = [60, 40, 25, 18, 14, 12, 10, 8, 7, 6];
 const FALLBACK_POOL = 200;
@@ -24,13 +27,16 @@ type ScoreRow = {
 export async function GET() {
   const sb = getSupabaseAdmin();
   if (!sb) {
-    return NextResponse.json({
-      configured: false,
-      contest: null,
-      entries: [],
-      payouts_wld: FALLBACK_PAYOUTS,
-      pool_wld: FALLBACK_POOL,
-    });
+    return NextResponse.json(
+      {
+        configured: false,
+        contest: null,
+        entries: [],
+        payouts_wld: FALLBACK_PAYOUTS,
+        pool_wld: FALLBACK_POOL,
+      },
+      { headers: { "Cache-Control": CACHE } },
+    );
   }
 
   // Latest contest by creation time, regardless of whether it's still active.
@@ -45,13 +51,16 @@ export async function GET() {
     return NextResponse.json({ error: contestErr.message }, { status: 500 });
   }
   if (!contestRow) {
-    return NextResponse.json({
-      configured: true,
-      contest: null,
-      entries: [],
-      payouts_wld: FALLBACK_PAYOUTS,
-      pool_wld: FALLBACK_POOL,
-    });
+    return NextResponse.json(
+      {
+        configured: true,
+        contest: null,
+        entries: [],
+        payouts_wld: FALLBACK_PAYOUTS,
+        pool_wld: FALLBACK_POOL,
+      },
+      { headers: { "Cache-Control": CACHE } },
+    );
   }
 
   const c = contestRow as ContestRow;
@@ -115,17 +124,20 @@ export async function GET() {
     prize_wld: payouts[i] ?? 0,
   }));
 
-  return NextResponse.json({
-    configured: true,
-    contest: {
-      id: c.id,
-      name: c.name,
-      starts_at: c.starts_at,
-      ends_at: c.ends_at,
-      ended,
+  return NextResponse.json(
+    {
+      configured: true,
+      contest: {
+        id: c.id,
+        name: c.name,
+        starts_at: c.starts_at,
+        ends_at: c.ends_at,
+        ended,
+      },
+      pool_wld: pool,
+      payouts_wld: payouts,
+      entries,
     },
-    pool_wld: pool,
-    payouts_wld: payouts,
-    entries,
-  });
+    { headers: { "Cache-Control": CACHE } },
+  );
 }

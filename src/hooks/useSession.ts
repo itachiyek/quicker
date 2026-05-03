@@ -27,7 +27,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
-      const r = await fetch("/api/auth/me", { cache: "no-store" });
+      // Respect browser Cache-Control on /api/auth/me so repeat mounts don't
+      // hit the server. The route sets a short private cache.
+      const r = await fetch("/api/auth/me");
       const data = (await r.json()) as { wallet: string | null };
       setWallet(data.wallet);
     } catch {

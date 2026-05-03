@@ -17,9 +17,16 @@ export async function GET() {
     );
   }
   const status = await getPlayStatus(sb, session.wallet);
-  return NextResponse.json({
-    ...status,
-    treasury: getTreasuryAddress(),
-    usdcPerRound: USDC_PER_ROUND,
-  });
+  return NextResponse.json(
+    {
+      ...status,
+      treasury: getTreasuryAddress(),
+      usdcPerRound: USDC_PER_ROUND,
+    },
+    {
+      // Per-user. We refresh client-side after starting a round or buying
+      // credits, so a 30s browser cache is safe and dedupes panel re-opens.
+      headers: { "Cache-Control": "private, max-age=30" },
+    },
+  );
 }

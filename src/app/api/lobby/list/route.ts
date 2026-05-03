@@ -4,10 +4,16 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 export const revalidate = 30;
 
 const PAGE_SIZE = 20;
+// Public list — same response across users for the same query string.
+const CACHE = "public, max-age=30, s-maxage=30, stale-while-revalidate=120";
 
 export async function GET(req: NextRequest) {
   const sb = getSupabaseAdmin();
-  if (!sb) return NextResponse.json({ lobbies: [], hasMore: false });
+  if (!sb)
+    return NextResponse.json(
+      { lobbies: [], hasMore: false },
+      { headers: { "Cache-Control": CACHE } },
+    );
 
   const url = new URL(req.url);
   const offset = Math.max(0, Number(url.searchParams.get("offset") ?? 0));
@@ -49,10 +55,13 @@ export async function GET(req: NextRequest) {
   const returned = data?.length ?? 0;
   const hasMore = offset + returned < total;
 
-  return NextResponse.json({
-    lobbies: data ?? [],
-    total,
-    hasMore,
-    pageSize: PAGE_SIZE,
-  });
+  return NextResponse.json(
+    {
+      lobbies: data ?? [],
+      total,
+      hasMore,
+      pageSize: PAGE_SIZE,
+    },
+    { headers: { "Cache-Control": CACHE } },
+  );
 }

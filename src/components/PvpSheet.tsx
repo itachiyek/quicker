@@ -66,9 +66,7 @@ export default function PvpSheet() {
       if (tokenFilter !== "all") params.set("token", tokenFilter);
       params.set("sort", sort);
       try {
-        const r = await fetch(`/api/lobby/list?${params}`, {
-          cache: "no-store",
-        });
+        const r = await fetch(`/api/lobby/list?${params}`);
         if (id !== requestId.current) return; // stale
         const d = (await r.json()) as ListResp;
         setLobbies((prev) => (reset ? d.lobbies : [...prev, ...d.lobbies]));
@@ -93,7 +91,7 @@ export default function PvpSheet() {
   useEffect(() => {
     if (!wallet) return;
     import("@/lib/cache").then(({ fetchCached }) =>
-      fetchCached<PvpStats>("/api/me/pvp-stats", 60_000)
+      fetchCached<PvpStats>("/api/me/pvp-stats", 5 * 60_000)
         .then(setStats)
         .catch(() => {}),
     );

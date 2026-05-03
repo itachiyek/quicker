@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
+// Per-user response, so private cache only — but still let the browser hold
+// onto it for a while to deduplicate rapid panel-open events.
+const CACHE = "private, max-age=120, stale-while-revalidate=300";
+
 type LobbyRow = {
   creator_wallet: string;
   challenger_wallet: string | null;
@@ -13,16 +17,18 @@ type LobbyRow = {
 export async function GET() {
   const session = await getSession();
   if (!session.wallet) {
-    return NextResponse.json({
-      played: 0,
-      won: 0,
-      lost: 0,
-      tied: 0,
-      open: 0,
-    });
+    return NextResponse.json(
+      { played: 0, won: 0, lost: 0, tied: 0, open: 0 },
+      { headers: { "Cache-Control": CACHE } },
+    );
   }
   const sb = getSupabaseAdmin();
-  if (!sb) return NextResponse.json({ played: 0, won: 0, lost: 0, tied: 0, open: 0 });
+  if (!sb) {
+    return NextResponse.json(
+      { played: 0, won: 0, lost: 0, tied: 0, open: 0 },
+      { headers: { "Cache-Control": CACHE } },
+    );
+  }
 
   const me = session.wallet.toLowerCase();
   const { data } = await sb
@@ -46,5 +52,8 @@ export async function GET() {
     }
   }
   const played = won + lost + tied;
-  return NextResponse.json({ played, won, lost, tied, open });
+  return NextResponse.json(
+    { played, won, lost, tied, open },
+    { headers: { "Cache-Control": CACHE } },
+  );
 }

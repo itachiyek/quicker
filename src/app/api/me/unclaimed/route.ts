@@ -11,15 +11,25 @@ import {
   usdcAddress,
 } from "@/lib/pvp";
 
+// Per-user, hits the chain on every call. Cache briefly in the user's
+// browser so opening/closing the PvP panel doesn't hammer the RPC.
+const CACHE = "private, max-age=60, stale-while-revalidate=300";
+
 // Reads claimable[user][token] on-chain for both WLD and USDC.
 export async function GET() {
   const session = await getSession();
   if (!session.wallet) {
-    return NextResponse.json({ wld: "0", usdc: "0", configured: false });
+    return NextResponse.json(
+      { wld: "0", usdc: "0", configured: false },
+      { headers: { "Cache-Control": CACHE } },
+    );
   }
   const escrow = getEscrowAddress();
   if (!escrow) {
-    return NextResponse.json({ wld: "0", usdc: "0", configured: false });
+    return NextResponse.json(
+      { wld: "0", usdc: "0", configured: false },
+      { headers: { "Cache-Control": CACHE } },
+    );
   }
 
   const client = publicClient();
@@ -59,16 +69,19 @@ export async function GET() {
       }),
     ]);
 
-    return NextResponse.json({
-      wld: formatUnits(wldRaw as bigint, decimalsFor("WLD")),
-      usdc: formatUnits(usdcRaw as bigint, decimalsFor("USDC")),
-      configured: true,
-      tokens: {
-        WLD: WLD_TOKEN_ADDRESS,
-        USDC: usdcAddress(),
+    return NextResponse.json(
+      {
+        wld: formatUnits(wldRaw as bigint, decimalsFor("WLD")),
+        usdc: formatUnits(usdcRaw as bigint, decimalsFor("USDC")),
+        configured: true,
+        tokens: {
+          WLD: WLD_TOKEN_ADDRESS,
+          USDC: usdcAddress(),
+        },
+        escrow,
       },
-      escrow,
-    });
+      { headers: { "Cache-Control": CACHE } },
+    );
   } catch (e) {
     return NextResponse.json(
       {
@@ -77,7 +90,7 @@ export async function GET() {
         configured: true,
         error: e instanceof Error ? e.message : "read failed",
       },
-      { status: 200 },
+      { status: 200, headers: { "Cache-Control": CACHE } },
     );
   }
 

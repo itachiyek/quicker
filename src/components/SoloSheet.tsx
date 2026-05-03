@@ -28,7 +28,7 @@ function useStats(wallet: string | null): Stats | null {
     if (!wallet) return;
     let cancelled = false;
     import("@/lib/cache").then(({ fetchCached }) =>
-      fetchCached<{ entries?: Entry[] }>("/api/leaderboard", 60_000)
+      fetchCached<{ entries?: Entry[] }>("/api/leaderboard", 5 * 60_000)
         .then((d) => {
           if (cancelled) return;
           const entries = d.entries ?? [];
@@ -79,7 +79,7 @@ export default function SoloSheet({ onStart }: { onStart: () => void }) {
       if (!res.ok) {
         const data = (await res.json()) as { error?: string };
         setStartError(data.error ?? "Unable to start");
-        await refreshStatus();
+        await refreshStatus({ force: true });
         return;
       }
       await loadModel((_m, p) => typeof p === "number" && setProgress(p));
@@ -175,7 +175,10 @@ export default function SoloSheet({ onStart }: { onStart: () => void }) {
               <div className="text-sm font-semibold">Top up to keep playing</div>
             </div>
           </div>
-          <BuyPanel status={status} onPurchased={refreshStatus} />
+          <BuyPanel
+            status={status}
+            onPurchased={() => refreshStatus({ force: true })}
+          />
         </section>
       )}
 
