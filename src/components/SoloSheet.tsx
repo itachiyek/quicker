@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { loadModel } from "@/lib/recognizer";
 import { playStart, unlockAudio } from "@/lib/sounds";
-import Leaderboard from "./Leaderboard";
 import BuyPanel from "./BuyRoundButton";
 import ContestCard from "./ContestCard";
 import InviteCard from "./InviteCard";
@@ -185,19 +184,6 @@ export default function SoloSheet({ onStart }: { onStart: () => void }) {
       {wallet && <InviteCard wallet={wallet} />}
 
       <ContestCard />
-
-      <section className="w-full">
-        <div className="flex items-baseline justify-between px-1 mb-2">
-          <h3 className="text-xs font-semibold text-stone-700 uppercase tracking-wider">
-            All-time leaderboard
-          </h3>
-          <span className="text-xs text-stone-500">Top 10</span>
-        </div>
-        <Leaderboard highlightWallet={wallet} />
-        <p className="mt-3 text-[11px] text-stone-500 text-center">
-          Best single-game score · all time
-        </p>
-      </section>
     </div>
   );
 }
