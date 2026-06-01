@@ -8,7 +8,7 @@ import { wagmiConfig } from "@/lib/wagmi";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { SessionProvider } from "@/hooks/useSession";
 import { installUnlockListeners } from "@/lib/sounds";
-import { REF_STORAGE_KEY, isLikelyWallet } from "@/lib/worldApp";
+import { REF_STORAGE_KEY, WORLD_APP_ID, isLikelyWallet } from "@/lib/worldApp";
 import "@rainbow-me/rainbowkit/styles.css";
 
 function ClientInit() {
@@ -17,7 +17,7 @@ function ClientInit() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const m = MiniKit as unknown as { install?: (appId?: string) => unknown };
       if (typeof m.install === "function") {
-        m.install();
+        m.install(WORLD_APP_ID);
       }
     } catch {
       /* ignore */
