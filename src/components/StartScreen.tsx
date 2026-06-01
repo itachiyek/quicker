@@ -30,12 +30,9 @@ export default function StartScreen({ onStart }: { onStart: () => void }) {
   return (
     <>
       <div className="flex-1 flex flex-col items-center max-w-md w-full mx-auto px-5 pt-6 pb-10">
-        <div className="w-full mb-6 rounded-2xl border border-rose-300/70 bg-rose-50/80 px-4 py-3 text-center">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-rose-500 font-semibold">
-            Wichtiger Hinweis
-          </p>
-          <p className="text-sm text-rose-800 mt-1 font-medium">
-            Diese App wird am 5. Juni abgeschaltet.
+        <div className="w-full mb-6 rounded-2xl border border-rose-300/70 bg-rose-50/80 px-4 py-2.5 text-center">
+          <p className="text-sm text-rose-800 font-medium">
+            Quicker shuts down on June 5.
           </p>
         </div>
 
